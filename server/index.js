@@ -362,20 +362,21 @@ app.delete('/api/uploads/:id', (req, res) => {
 let autopilotRunning = false;
 
 // Trigger an automatic generation check
-async function runAutopilotCheck() {
-  if (autopilotRunning) return;
+// Trigger an automatic generation check
+async function runAutopilotCheck(force = false) {
+  if (autopilotRunning) return { success: false, reason: 'Autopilot already running' };
   
   const db = readDB();
   const settings = db.settings;
   
-  if (!settings || !settings.autopilot || !settings.autopilot.enabled) {
-    return;
+  if (!settings || !settings.autopilot || (!settings.autopilot.enabled && !force)) {
+    return { success: false, reason: 'Autopilot disabled' };
   }
   
   const tokens = db.tokens;
   if (!tokens) {
     console.log('[Autopilot] Skipped: YouTube channel not authenticated.');
-    return;
+    return { success: false, reason: 'YouTube channel not authenticated' };
   }
 
   const autopilot = settings.autopilot;
@@ -389,7 +390,7 @@ async function runAutopilotCheck() {
   const isDifferentDay = !lastRunDate || lastRunDate.toDateString() !== now.toDateString();
   const isPastTargetTime = now.getHours() > targetHour || (now.getHours() === targetHour && now.getMinutes() >= targetMin);
 
-  if (isDifferentDay && isPastTargetTime) {
+  if (force || (isDifferentDay && isPastTargetTime)) {
     autopilotRunning = true;
     console.log('[Autopilot] Triggered generation. Niche:', autopilot.niche);
     
@@ -412,16 +413,48 @@ async function runAutopilotCheck() {
       autopilot.lastRun = now.toISOString();
       settings.autopilot = autopilot;
       updateDBKey('settings', settings);
+      return { success: true, record };
     } catch (err) {
       console.error('[Autopilot] Execution error:', err.message);
+      throw err;
     } finally {
       autopilotRunning = false;
     }
+  } else {
+    return { success: false, reason: 'Not time yet today' };
   }
 }
 
 // Run autopilot check every 60 seconds
-setInterval(runAutopilotCheck, 60 * 1000);
+setInterval(() => {
+  runAutopilotCheck().catch((err) => console.error('[Autopilot background check error]:', err.message));
+}, 60 * 1000);
+
+// API to trigger autopilot manually
+app.post('/api/autopilot/trigger', async (req, res) => {
+  try {
+    const result = await runAutopilotCheck(true);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API to reset autopilot lastRun status
+app.post('/api/autopilot/reset', (req, res) => {
+  try {
+    const db = readDB();
+    if (db.settings && db.settings.autopilot) {
+      db.settings.autopilot.lastRun = null;
+      writeDB(db);
+      res.json({ success: true });
+    } else {
+      res.status(400).json({ error: 'Autopilot settings not found' });
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Fallback serve for single page apps in prod (always return index.html)
 app.get('*', (req, res) => {
