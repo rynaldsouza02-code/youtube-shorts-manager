@@ -125,7 +125,11 @@ export default function Settings({ settings, fetchSettings, isChannelConnected, 
             <li>Go to the <strong>OAuth consent screen</strong> configuration, set User Type to <strong>External</strong>, and fill in the details. Add scope: <code>.../auth/youtube.upload</code>.</li>
             <li>Go to <strong>Credentials</strong>, click <strong>Create Credentials</strong> &rarr; <strong>OAuth client ID</strong>.</li>
             <li>Select Application Type as <strong>Web application</strong>.</li>
-            <li>Add Authorized Redirect URI: <code style={{ color: '#fff', background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: '4px' }}>http://localhost:3001/auth/youtube/callback</code></li>
+            <li>Add Authorized Redirect URI: <code style={{ color: '#fff', background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: '4px' }}>
+              {window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+                ? 'http://localhost:3001/auth/youtube/callback' 
+                : `${window.location.origin}/auth/youtube/callback`}
+            </code></li>
             <li>Click Save, copy the generated <strong>Client ID</strong> and <strong>Client Secret</strong>, paste them below, and click <strong>Save Config</strong>.</li>
             <li>Finally, click the red <strong>Connect Channel</strong> button to authenticate.</li>
           </ol>
