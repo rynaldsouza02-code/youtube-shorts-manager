@@ -187,9 +187,44 @@ export default function App() {
         canvas.height = 1920;
         const ctx = canvas.getContext('2d');
 
-        // Setup Media Recorder on the Canvas Stream
-        const stream = canvas.captureStream(30); // 30 FPS
-        const recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
+        // 1. Initialize Audio Context and Destination Node
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        const audioCtx = new AudioContextClass();
+        const dest = audioCtx.createMediaStreamDestination();
+
+        if (audioCtx.state === 'suspended') {
+          await audioCtx.resume();
+        }
+
+        // 2. Play background music in the background (silent to the user!)
+        const musicTracks = {
+          cinematic: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+          upbeat: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
+          ambient: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3',
+          dark: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-16.mp3'
+        };
+        const genre = settings.musicGenre || 'cinematic';
+        const music = new Audio(musicTracks[genre]);
+        music.crossOrigin = 'anonymous';
+        music.loop = true;
+
+        const musicSource = audioCtx.createMediaElementSource(music);
+        const musicGain = audioCtx.createGain();
+        musicGain.gain.value = 0.08; // 8% volume
+        musicSource.connect(musicGain);
+        musicGain.connect(dest); // Connect to stream only (no speaker output!)
+
+        // Start playing background music
+        music.play().catch(e => console.log('[Autopilot Music Blocked]:', e.message));
+
+        // 3. Setup Media Recorder on the Canvas Stream + Web Audio destination
+        const videoStream = canvas.captureStream(30); // 30 FPS
+        const combinedStream = new MediaStream([
+          ...videoStream.getVideoTracks(),
+          ...dest.stream.getAudioTracks()
+        ]);
+
+        const recorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm;codecs=vp9' });
         const chunks = [];
 
         recorder.ondataavailable = (e) => {
@@ -197,6 +232,9 @@ export default function App() {
         };
 
         recorder.onstop = () => {
+          try {
+            music.pause();
+          } catch (e) {}
           const blob = new Blob(chunks, { type: 'video/webm' });
           resolve(blob);
         };
@@ -217,10 +255,14 @@ export default function App() {
           const audio = new Audio(scene.audioUrl);
           audio.crossOrigin = "anonymous";
           
+          // Route voice through Web Audio destination (so it gets recorded silently)
+          const voiceSource = audioCtx.createMediaElementSource(audio);
+          voiceSource.connect(dest); // Connect to stream only (no speaker output!)
+          
           let duration = scene.duration * 1000;
           let startTime = Date.now();
 
-          // Play Audio
+          // Play Audio (silently routed to stream)
           audio.play().catch(() => console.log('Audio autoplay blocked in headless'));
 
           // Draw loop for this scene duration
@@ -270,7 +312,6 @@ export default function App() {
             const yOffset = 1400; // bottom section of Shorts
             
             // Draw wrapping subtitle text
-            const lineLimit = 3;
             let line = '';
             let lines = [];
             
@@ -286,12 +327,9 @@ export default function App() {
             lines.push({ text: line.trim(), startIdx: words.length - line.split(' ').filter(Boolean).length });
 
             lines.forEach((lineObj, lIdx) => {
-              const lineWords = lineObj.text.split(' ');
               const startX = 540;
               const wordY = yOffset + (lIdx * 80);
               
-              // We'll just draw the text line. To make it premium, draw standard line
-              // but draw the active word highlighted in yellow.
               ctx.strokeText(lineObj.text.toUpperCase(), startX, wordY);
               ctx.fillText(lineObj.text.toUpperCase(), startX, wordY);
             });
@@ -300,7 +338,9 @@ export default function App() {
             await new Promise(r => setTimeout(r, 33)); // ~30 FPS
           }
           
-          audio.pause();
+          try {
+            audio.pause();
+          } catch (e) {}
         }
 
         recorder.stop();
