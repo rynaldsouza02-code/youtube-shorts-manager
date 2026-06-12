@@ -145,9 +145,9 @@ export default function App() {
           method: 'POST',
           headers: {
             'Content-Type': 'video/webm',
-            'x-video-title': pendingItem.title,
-            'x-video-desc': pendingItem.description,
-            'x-video-tags': pendingItem.tags,
+            'x-video-title': encodeURIComponent(pendingItem.title || ''),
+            'x-video-desc': encodeURIComponent(pendingItem.description || ''),
+            'x-video-tags': encodeURIComponent(pendingItem.tags || ''),
             'x-video-category': settings.defaultCategory || '22'
           },
           body: compiledBlob

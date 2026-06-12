@@ -170,9 +170,9 @@ export default function Creator({ isChannelConnected, settings, addToast, fetchU
     try {
       const headers = {
         'Content-Type': 'video/webm',
-        'x-video-title': publishMetadata.title,
-        'x-video-desc': publishMetadata.description,
-        'x-video-tags': publishMetadata.tags,
+        'x-video-title': encodeURIComponent(publishMetadata.title || ''),
+        'x-video-desc': encodeURIComponent(publishMetadata.description || ''),
+        'x-video-tags': encodeURIComponent(publishMetadata.tags || ''),
         'x-video-category': settings.defaultCategory || '22'
       };
 

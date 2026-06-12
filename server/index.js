@@ -263,9 +263,18 @@ app.get('/api/uploads', async (req, res) => {
 
 // Endpoint to handle raw video binary files and queue upload to YouTube
 app.post('/api/upload-video', async (req, res) => {
-  const videoTitle = req.headers['x-video-title'] || 'AI Short';
-  const videoDesc = req.headers['x-video-desc'] || '';
-  const videoTags = req.headers['x-video-tags'] || '';
+  const safeDecode = (val) => {
+    if (!val) return '';
+    try {
+      return decodeURIComponent(val);
+    } catch (e) {
+      return val;
+    }
+  };
+
+  const videoTitle = safeDecode(req.headers['x-video-title']) || 'AI Short';
+  const videoDesc = safeDecode(req.headers['x-video-desc']);
+  const videoTags = safeDecode(req.headers['x-video-tags']);
   const videoCategory = req.headers['x-video-category'] || '22';
   const scheduleTime = req.headers['x-schedule-time'] || null; // ISO Date String
 
