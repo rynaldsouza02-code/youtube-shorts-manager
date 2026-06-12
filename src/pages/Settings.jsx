@@ -59,6 +59,15 @@ export default function Settings({ settings, fetchSettings, isChannelConnected, 
 
   // Start YouTube OAuth link flow
   const handleConnectChannel = async () => {
+    // Check for unsaved changes in YouTube credentials
+    if (
+      formData.youtubeClientId !== settings.youtubeClientId ||
+      formData.youtubeClientSecret !== settings.youtubeClientSecret
+    ) {
+      addToast('You have unsaved changes in your credentials. Please click "Save Config Settings" first.', 'error');
+      return;
+    }
+
     if (!formData.youtubeClientId || !formData.youtubeClientSecret) {
       addToast('Please enter your YouTube Client ID and Client Secret first, then save.', 'error');
       return;
