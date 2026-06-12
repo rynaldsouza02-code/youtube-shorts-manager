@@ -127,7 +127,7 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
             {isChannelConnected && channelInfo ? parseInt(channelInfo.views).toLocaleString() : '—'}
           </h2>
           <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px' }}>
-            {isChannelConnected ? 'All-time views across channel' : 'Authenticate to sync stats'}
+            {isChannelConnected ? `All-time channel views (Video list views: ${totalViews.toLocaleString()})` : 'Authenticate to sync stats'}
           </p>
         </div>
 
