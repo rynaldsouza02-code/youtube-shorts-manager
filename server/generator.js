@@ -141,8 +141,17 @@ export async function generateSpeech(text, filename) {
     // Return relative URL path for the client
     return `/api/temp/${filename}.mp3`;
   } catch (error) {
-    console.error('TTS speech generation failed:', error.message);
-    throw error;
+    console.warn(`[TTS Warn] Speech generation failed for "${text.slice(0, 30)}...":`, error.message);
+    console.log('[TTS Info] Falling back to a silent audio track for this scene.');
+    try {
+      // 1-second silent MP3 base64 string
+      const silentBase64 = 'SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjEwMC4xMDAA//uQZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaW5mbwAAAA8AAAACAAACQAB1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1//uQZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluaAAAAAwAAAAEAAACQAB1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1';
+      fs.writeFileSync(filePath, Buffer.from(silentBase64, 'base64'));
+      return `/api/temp/${filename}.mp3`;
+    } catch (writeErr) {
+      console.error('Failed to write fallback silent audio file:', writeErr.message);
+      throw error;
+    }
   }
 }
 
