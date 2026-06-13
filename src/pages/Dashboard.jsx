@@ -124,7 +124,7 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
             <Eye size={20} color="var(--color-accent)" />
           </div>
           <h2 style={{ fontSize: '2.4rem', fontWeight: 800, fontFamily: 'var(--font-display)', background: 'linear-gradient(135deg, #fff 60%, var(--color-accent) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            {isChannelConnected && channelInfo ? parseInt(channelInfo.views).toLocaleString() : '—'}
+            {isChannelConnected && channelInfo ? Math.max(parseInt(channelInfo.views || 0), totalViews).toLocaleString() : '—'}
           </h2>
           <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '8px', fontWeight: 500 }}>
             {isChannelConnected ? `All-time channel views (Video list views: ${totalViews.toLocaleString()})` : 'Authenticate to sync stats'}
