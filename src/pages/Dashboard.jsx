@@ -80,7 +80,7 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
   };
 
   return (
-    <div style={{ maxWidth: '1140px', margin: '0 auto', position: 'relative' }}>
+    <div className="tab-fade-in" style={{ maxWidth: '1140px', margin: '0 auto', position: 'relative' }}>
       {/* Header */}
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
         <div>
@@ -104,53 +104,57 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
         marginBottom: '36px'
       }}>
         {/* Subscribers Card */}
-        <div className="glass-panel" style={{ padding: '24px', position: 'relative', overflow: 'hidden', borderLeft: '4px solid var(--color-cyan)' }}>
+        <div className="glass-panel glass-panel-interactive accent-border-cyan accent-glow-cyan" style={{ padding: '24px', position: 'relative', overflow: 'hidden' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Subscribers</span>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600, letterSpacing: '0.02em', textTransform: 'uppercase' }}>Subscribers</span>
             <Users size={20} color="var(--color-cyan)" />
           </div>
-          <h2 style={{ fontSize: '2.2rem', fontWeight: 800 }}>
+          <h2 style={{ fontSize: '2.4rem', fontWeight: 800, fontFamily: 'var(--font-display)', background: 'linear-gradient(135deg, #fff 60%, var(--color-cyan) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             {isChannelConnected && channelInfo ? parseInt(channelInfo.subscribers).toLocaleString() : '—'}
           </h2>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px' }}>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '8px', fontWeight: 500 }}>
             {isChannelConnected ? 'Linked channel subscribers' : 'Connect channel in Settings'}
           </p>
         </div>
 
         {/* Channel Views Card */}
-        <div className="glass-panel" style={{ padding: '24px', position: 'relative', overflow: 'hidden', borderLeft: '4px solid var(--color-accent)' }}>
+        <div className="glass-panel glass-panel-interactive accent-border-purple accent-glow-purple" style={{ padding: '24px', position: 'relative', overflow: 'hidden' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Lifetime Channel Views</span>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600, letterSpacing: '0.02em', textTransform: 'uppercase' }}>Lifetime Channel Views</span>
             <Eye size={20} color="var(--color-accent)" />
           </div>
-          <h2 style={{ fontSize: '2.2rem', fontWeight: 800 }}>
+          <h2 style={{ fontSize: '2.4rem', fontWeight: 800, fontFamily: 'var(--font-display)', background: 'linear-gradient(135deg, #fff 60%, var(--color-accent) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             {isChannelConnected && channelInfo ? parseInt(channelInfo.views).toLocaleString() : '—'}
           </h2>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px' }}>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '8px', fontWeight: 500 }}>
             {isChannelConnected ? `All-time channel views (Video list views: ${totalViews.toLocaleString()})` : 'Authenticate to sync stats'}
           </p>
         </div>
 
         {/* Managed Shorts Card */}
-        <div className="glass-panel" style={{ padding: '24px', position: 'relative', overflow: 'hidden', borderLeft: '4px solid var(--color-shorts)' }}>
+        <div className="glass-panel glass-panel-interactive accent-border-pink accent-glow-pink" style={{ padding: '24px', position: 'relative', overflow: 'hidden' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Managed Uploads</span>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600, letterSpacing: '0.02em', textTransform: 'uppercase' }}>Managed Uploads</span>
             <Video size={20} color="var(--color-shorts)" />
           </div>
-          <h2 style={{ fontSize: '2.2rem', fontWeight: 800 }}>{totalUploaded}</h2>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px' }}>
+          <h2 style={{ fontSize: '2.4rem', fontWeight: 800, fontFamily: 'var(--font-display)', background: 'linear-gradient(135deg, #fff 60%, var(--color-shorts) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            {totalUploaded}
+          </h2>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '8px', fontWeight: 500 }}>
             Fetched uploads & history
           </p>
         </div>
 
         {/* Scheduled Autopilot Card */}
-        <div className="glass-panel" style={{ padding: '24px', position: 'relative', overflow: 'hidden', borderLeft: '4px solid var(--color-success)' }}>
+        <div className="glass-panel glass-panel-interactive accent-border-success accent-glow-success" style={{ padding: '24px', position: 'relative', overflow: 'hidden' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Scheduled Queue</span>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600, letterSpacing: '0.02em', textTransform: 'uppercase' }}>Scheduled Queue</span>
             <Calendar size={20} color="var(--color-success)" />
           </div>
-          <h2 style={{ fontSize: '2.2rem', fontWeight: 800 }}>{totalScheduled}</h2>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px' }}>
+          <h2 style={{ fontSize: '2.4rem', fontWeight: 800, fontFamily: 'var(--font-display)', background: 'linear-gradient(135deg, #fff 60%, var(--color-success) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            {totalScheduled}
+          </h2>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '8px', fontWeight: 500 }}>
             Shorts queued for release
           </p>
         </div>
@@ -241,41 +245,50 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
                         {new Date(item.createdAt).toLocaleDateString()} {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </td>
                       <td style={{ padding: '16px' }}>
-                        <span style={{
-                          padding: '4px 10px',
-                          borderRadius: '20px',
-                          fontSize: '0.75rem',
-                          fontWeight: 600,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.02em',
-                          background: 
-                            item.status === 'completed' ? 'rgba(16, 185, 129, 0.15)' :
-                            item.status === 'scheduled' ? 'rgba(245, 158, 11, 0.15)' :
-                            item.status === 'pending_compile' ? 'rgba(6, 182, 212, 0.15)' :
-                            item.status === 'processing' ? 'rgba(139, 92, 246, 0.15)' :
-                            'rgba(239, 68, 68, 0.15)',
-                          color:
-                            item.status === 'completed' ? 'var(--color-success)' :
-                            item.status === 'scheduled' ? 'var(--color-warning)' :
-                            item.status === 'pending_compile' ? 'var(--color-cyan)' :
-                            item.status === 'processing' ? 'var(--color-accent)' :
-                            'var(--color-error)',
-                          border: `1px solid ${
-                            item.status === 'completed' ? 'rgba(16, 185, 129, 0.3)' :
-                            item.status === 'scheduled' ? 'rgba(245, 158, 11, 0.3)' :
-                            item.status === 'pending_compile' ? 'rgba(6, 182, 212, 0.3)' :
-                            item.status === 'processing' ? 'rgba(139, 92, 246, 0.3)' :
-                            'rgba(239, 68, 68, 0.3)'
-                          }`
-                        }}>
-                          {item.status === 'pending_compile' ? 'Autopilot script' : item.status}
-                        </span>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                          <span className={`pulse-dot ${
+                            item.status === 'completed' ? 'success' :
+                            item.status === 'scheduled' ? 'warning' :
+                            item.status === 'pending_compile' || item.status === 'processing' ? 'processing' :
+                            'error'
+                          }`} />
+                          <span style={{
+                            padding: '4px 10px',
+                            borderRadius: '20px',
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.02em',
+                            background: 
+                              item.status === 'completed' ? 'rgba(16, 185, 129, 0.12)' :
+                              item.status === 'scheduled' ? 'rgba(245, 158, 11, 0.12)' :
+                              item.status === 'pending_compile' ? 'rgba(6, 182, 212, 0.12)' :
+                              item.status === 'processing' ? 'rgba(139, 92, 246, 0.12)' :
+                              'rgba(239, 68, 68, 0.12)',
+                            color:
+                              item.status === 'completed' ? 'var(--color-success)' :
+                              item.status === 'scheduled' ? 'var(--color-warning)' :
+                              item.status === 'pending_compile' ? 'var(--color-cyan)' :
+                              item.status === 'processing' ? 'var(--color-accent)' :
+                              'var(--color-error)',
+                            border: `1px solid ${
+                              item.status === 'completed' ? 'rgba(16, 185, 129, 0.25)' :
+                              item.status === 'scheduled' ? 'rgba(245, 158, 11, 0.25)' :
+                              item.status === 'pending_compile' ? 'rgba(6, 182, 212, 0.25)' :
+                              item.status === 'processing' ? 'rgba(139, 92, 246, 0.25)' :
+                              'rgba(239, 68, 68, 0.25)'
+                            }`
+                          }}>
+                            {item.status === 'pending_compile' ? 'Autopilot script' : item.status}
+                          </span>
+                        </div>
                         {item.status === 'completed' && item.privacy && (
                           <span style={{
                             display: 'block',
                             fontSize: '0.7rem',
                             color: item.privacy === 'public' ? 'var(--color-success)' : 'var(--text-muted)',
-                            marginTop: '4px',
+                            marginTop: '6px',
+                            marginLeft: '16px',
                             fontWeight: 500,
                             textTransform: 'capitalize'
                           }}>
@@ -426,23 +439,32 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
                     {chartDataWithPct.map((d, i) => (
                       <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
                         <div 
+                          className="chart-bar"
                           style={{ 
-                            width: '80%', 
+                            width: '60%', 
                             height: `${d.pct}%`, 
                             background: 'linear-gradient(to top, var(--color-shorts) 0%, var(--color-cyan) 100%)',
-                            borderRadius: '4px 4px 0 0',
+                            borderRadius: '8px 8px 0 0',
                             position: 'relative',
-                            transition: 'height 0.4s ease',
+                            transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
                             cursor: 'pointer',
-                            boxShadow: '0 0 10px rgba(255, 46, 85, 0.15)'
+                            boxShadow: '0 0 12px rgba(255, 46, 85, 0.2)'
                           }}
                           title={d.title}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = 'scaleY(1.05)';
+                            e.currentTarget.style.boxShadow = '0 0 20px rgba(6, 182, 212, 0.5)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = 'scaleY(1)';
+                            e.currentTarget.style.boxShadow = '0 0 12px rgba(255, 46, 85, 0.2)';
+                          }}
                         >
-                          <span style={{ position: 'absolute', top: '-22px', left: '50%', transform: 'translateX(-50%)', fontSize: '0.75rem', fontWeight: 700, color: '#fff' }}>
+                          <span style={{ position: 'absolute', top: '-26px', left: '50%', transform: 'translateX(-50%)', fontSize: '0.75rem', fontWeight: 800, color: '#fff', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
                             {d.views >= 1000 ? `${(d.views/1000).toFixed(1)}k` : d.views}
                           </span>
                         </div>
-                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '8px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', width: '60px', textAlign: 'center' }} title={d.title}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '10px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', width: '70px', textAlign: 'center', fontWeight: 500 }} title={d.title}>
                           {d.label}
                         </span>
                       </div>

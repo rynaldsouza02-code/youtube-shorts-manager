@@ -88,7 +88,7 @@ export default function Scheduler({ settings, fetchSettings, uploads, fetchUploa
   const scheduledUploads = uploads.filter(u => u.status === 'scheduled');
 
   return (
-    <div style={{ maxWidth: '980px', margin: '0 auto' }}>
+    <div className="tab-fade-in" style={{ maxWidth: '980px', margin: '0 auto' }}>
       {/* Header */}
       <div className="page-header">
         <h1 className="page-title"><CalendarIcon size={28} color="var(--color-shorts)" /> Autopilot Scheduler</h1>
@@ -98,8 +98,8 @@ export default function Scheduler({ settings, fetchSettings, uploads, fetchUploa
       <div style={{ display: 'grid', gridTemplateColumns: '400px 1fr', gap: '30px' }}>
         {/* Left Column: Autopilot Config & Control */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <form onSubmit={handleSaveAutopilot} className="glass-panel" style={{ padding: '24px', height: 'fit-content' }}>
-            <h3 style={{ marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <form onSubmit={handleSaveAutopilot} className="glass-panel" style={{ padding: '24px', height: 'fit-content', borderLeft: '4px solid var(--color-shorts)', boxShadow: 'var(--shadow-glow)' }}>
+            <h3 style={{ marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'var(--font-display)' }}>
               <Sparkles size={18} color="var(--color-shorts)" /> Autopilot Engine
             </h3>
             
@@ -132,7 +132,7 @@ export default function Scheduler({ settings, fetchSettings, uploads, fetchUploa
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Autopilot Prompt Niche</label>
+                <label className="form-label" style={{ opacity: autopilotEnabled ? 1 : 0.5 }}>Autopilot Prompt Niche</label>
                 <textarea 
                   value={niche}
                   onChange={(e) => setNiche(e.target.value)}
@@ -140,17 +140,9 @@ export default function Scheduler({ settings, fetchSettings, uploads, fetchUploa
                   required={autopilotEnabled}
                   disabled={!autopilotEnabled}
                   rows={3}
+                  className="input-control"
                   style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    borderRadius: '8px',
-                    background: 'rgba(255,255,255,0.02)',
-                    border: '1px solid var(--border-color)',
-                    color: '#fff',
-                    outline: 'none',
-                    fontSize: '0.9rem',
                     resize: 'none',
-                    fontFamily: 'var(--font-sans)',
                     opacity: autopilotEnabled ? 1 : 0.5
                   }}
                 />
@@ -158,20 +150,13 @@ export default function Scheduler({ settings, fetchSettings, uploads, fetchUploa
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Frequency</label>
+                  <label className="form-label" style={{ opacity: autopilotEnabled ? 1 : 0.5 }}>Frequency</label>
                   <select 
                     value={frequency}
                     onChange={(e) => setFrequency(e.target.value)}
                     disabled={!autopilotEnabled}
+                    className="input-control input-control-select"
                     style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      borderRadius: '8px',
-                      background: 'var(--bg-tertiary)',
-                      border: '1px solid var(--border-color)',
-                      color: '#fff',
-                      outline: 'none',
-                      fontSize: '0.9rem',
                       opacity: autopilotEnabled ? 1 : 0.5
                     }}
                   >
@@ -181,21 +166,14 @@ export default function Scheduler({ settings, fetchSettings, uploads, fetchUploa
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Posting Time</label>
+                  <label className="form-label" style={{ opacity: autopilotEnabled ? 1 : 0.5 }}>Posting Time</label>
                   <input 
                     type="time" 
                     value={time}
                     onChange={(e) => setTime(e.target.value)}
                     disabled={!autopilotEnabled}
+                    className="input-control"
                     style={{
-                      width: '100%',
-                      padding: '9px 12px',
-                      borderRadius: '8px',
-                      background: 'var(--bg-tertiary)',
-                      border: '1px solid var(--border-color)',
-                      color: '#fff',
-                      outline: 'none',
-                      fontSize: '0.9rem',
                       opacity: autopilotEnabled ? 1 : 0.5
                     }}
                   />

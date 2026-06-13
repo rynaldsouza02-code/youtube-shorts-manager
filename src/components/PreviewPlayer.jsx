@@ -568,6 +568,84 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
       {/* 9:16 Vertical Simulator view */}
       <div className="shorts-simulator-container">
         <div className="shorts-phone-frame">
+          {/* Physical camera notch overlay */}
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '110px',
+            height: '20px',
+            background: '#1e2235',
+            borderRadius: '0 0 14px 14px',
+            zIndex: 20,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+            pointerEvents: 'none'
+          }}>
+            {/* Camera lens */}
+            <div style={{
+              width: '6px',
+              height: '6px',
+              borderRadius: '50%',
+              background: '#040508',
+              border: '1px solid #3b4260'
+            }} />
+          </div>
+
+          {/* Phone Status Bar Mockup */}
+          <div style={{
+            position: 'absolute',
+            top: '4px',
+            left: 0,
+            right: 0,
+            padding: '2px 20px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            fontSize: '0.65rem',
+            fontWeight: 700,
+            color: 'rgba(255,255,255,0.5)',
+            zIndex: 18,
+            pointerEvents: 'none',
+            fontFamily: 'var(--font-sans)'
+          }}>
+            <span>12:00</span>
+            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+              <span>5G</span>
+              <div style={{ width: '15px', height: '8px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '2px', padding: '1px', display: 'flex' }}>
+                <div style={{ width: '100%', height: '100%', background: 'rgba(255,255,255,0.5)', borderRadius: '1px' }} />
+              </div>
+            </div>
+          </div>
+
+          {/* Glossy screen glare reflection */}
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            background: 'linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0) 45%, rgba(0,0,0,0.08) 100%)',
+            pointerEvents: 'none',
+            zIndex: 15
+          }} />
+
+          {/* Physical Home Indicator Bar */}
+          <div style={{
+            position: 'absolute',
+            bottom: '8px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '90px',
+            height: '4px',
+            background: 'rgba(255,255,255,0.35)',
+            borderRadius: '2px',
+            zIndex: 18,
+            pointerEvents: 'none'
+          }} />
+
           <canvas 
             ref={canvasRef} 
             width={1080} 
@@ -580,20 +658,21 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
             <div style={{
               position: 'absolute',
               inset: 0,
-              background: 'rgba(12, 14, 20, 0.9)',
+              background: 'rgba(12, 14, 20, 0.95)',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
               gap: '12px',
-              color: 'var(--text-secondary)'
+              color: 'var(--text-secondary)',
+              zIndex: 16
             }}>
               <div className="spinner" style={{ borderColor: 'var(--color-shorts)', borderTopColor: 'transparent', width: '28px', height: '28px' }}></div>
-              <span style={{ fontSize: '0.85rem' }}>Loading Stock Media...</span>
+              <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>Loading Stock Media...</span>
             </div>
           )}
-
-          {/* Subtitle preview container (purely overlay for editor visual comfort) */}
+ 
+          {/* Subtitle preview container */}
           {assetsLoaded && !isPlaying && !isCompiling && (
             <div className="subtitle-overlay-container">
               <div className="subtitle-word-box">

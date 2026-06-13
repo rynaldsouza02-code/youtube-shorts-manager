@@ -204,9 +204,23 @@ export default function Creator({ isChannelConnected, settings, addToast, fetchU
   };
 
   return (
-    <div style={{ maxWidth: '980px', margin: '0 auto' }}>
+    <div className="tab-fade-in" style={{ maxWidth: '980px', margin: '0 auto' }}>
       {/* Step Progress Nodes */}
       <div className="step-indicator">
+        {/* Animated fill connector */}
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '10px',
+          right: '10px',
+          height: '3px',
+          background: 'var(--grad-shorts)',
+          zIndex: 1,
+          transform: 'translateY(-50%)',
+          width: `${((currentStep - 1) / 3) * 96}%`,
+          transition: 'width 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+          boxShadow: '0 0 10px rgba(255, 46, 85, 0.5)'
+        }} />
         <div className={`step-node ${currentStep >= 1 ? 'active' : ''} ${currentStep > 1 ? 'completed' : ''}`}>1</div>
         <div className={`step-node ${currentStep >= 2 ? 'active' : ''} ${currentStep > 2 ? 'completed' : ''}`}>2</div>
         <div className={`step-node ${currentStep >= 3 ? 'active' : ''} ${currentStep > 3 ? 'completed' : ''}`}>3</div>
@@ -215,54 +229,35 @@ export default function Creator({ isChannelConnected, settings, addToast, fetchU
 
       {/* ================= STEP 1: IDEA / GENERATOR ================= */}
       {currentStep === 1 && (
-        <div className="glass-panel" style={{ padding: '36px', maxWidth: '600px', margin: '0 auto' }}>
-          <h2 style={{ fontSize: '1.6rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div className="glass-panel" style={{ padding: '36px', maxWidth: '600px', margin: '0 auto', borderLeft: '4px solid var(--color-shorts)', boxShadow: 'var(--shadow-glow)' }}>
+          <h2 style={{ fontSize: '1.6rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '10px', fontFamily: 'var(--font-display)' }}>
             <Sparkles color="var(--color-shorts)" /> AI Shorts Creator
           </h2>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '24px', fontSize: '0.95rem' }}>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '24px', fontSize: '0.95rem', lineHeight: '1.5' }}>
             Describe your idea, and Gemini will generate a high-engagement viral script storyboard.
           </p>
 
           <form onSubmit={handleGenerateScript} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Topic or Niche Concept</label>
+              <label className="form-label">Topic or Niche Concept</label>
               <textarea 
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 placeholder="e.g. 5 mysterious facts about the pyramids, or Daily motivational quote for programmers"
                 required
                 rows={3}
-                style={{
-                  width: '100%',
-                  padding: '12px 14px',
-                  borderRadius: '8px',
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid var(--border-color)',
-                  color: '#fff',
-                  outline: 'none',
-                  fontSize: '0.95rem',
-                  resize: 'none',
-                  fontFamily: 'var(--font-sans)'
-                }}
+                className="input-control"
+                style={{ resize: 'none' }}
               />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Script Style Tone</label>
+                <label className="form-label">Script Style Tone</label>
                 <select 
                   value={style}
                   onChange={(e) => setStyle(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    borderRadius: '8px',
-                    background: 'var(--bg-tertiary)',
-                    border: '1px solid var(--border-color)',
-                    color: '#fff',
-                    outline: 'none',
-                    fontSize: '0.9rem'
-                  }}
+                  className="input-control input-control-select"
                 >
                   <option value="informative">Factual & Informative</option>
                   <option value="mysterious">Mysterious & Dark</option>
@@ -272,20 +267,11 @@ export default function Creator({ isChannelConnected, settings, addToast, fetchU
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Music Vibe</label>
+                <label className="form-label">Music Vibe</label>
                 <select 
                   value={musicGenre}
                   onChange={(e) => setMusicGenre(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    borderRadius: '8px',
-                    background: 'var(--bg-tertiary)',
-                    border: '1px solid var(--border-color)',
-                    color: '#fff',
-                    outline: 'none',
-                    fontSize: '0.9rem'
-                  }}
+                  className="input-control input-control-select"
                 >
                   <option value="cinematic">Epic Cinematic</option>
                   <option value="upbeat">Upbeat & Energetic</option>
@@ -301,9 +287,9 @@ export default function Creator({ isChannelConnected, settings, addToast, fetchU
                 id="useVideos" 
                 checked={useVideoAssets} 
                 onChange={(e) => setUseVideoAssets(e.target.checked)} 
-                style={{ width: '16px', height: '16px', accentColor: 'var(--color-shorts)' }}
+                style={{ width: '16px', height: '16px', accentColor: 'var(--color-shorts)', cursor: 'pointer' }}
               />
-              <label htmlFor="useVideos" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+              <label htmlFor="useVideos" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: 500 }}>
                 Search video clips instead of photos (Pexels API only)
               </label>
             </div>
@@ -336,67 +322,54 @@ export default function Creator({ isChannelConnected, settings, addToast, fetchU
             </p>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+            gap: '24px'
+          }}>
             {scenes.map((scene, idx) => (
-              <div key={idx} className="glass-panel" style={{ padding: '20px', display: 'grid', gridTemplateColumns: '50px 1fr 1fr', gap: '20px', alignItems: 'center' }}>
-                <span style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-muted)' }}>#{idx + 1}</span>
-                
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Speech Narration & Subtitle</label>
-                  <textarea 
-                    value={scene.narratorText}
-                    onChange={(e) => handleSceneTextChange(idx, 'narratorText', e.target.value)}
-                    rows={2}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: '6px',
-                      background: 'rgba(255,255,255,0.02)',
-                      border: '1px solid var(--border-color)',
-                      color: '#fff',
-                      outline: 'none',
-                      fontSize: '0.85rem',
-                      fontFamily: 'var(--font-sans)',
-                      resize: 'none'
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Stock Search Query</label>
-                  <input 
-                    type="text" 
-                    value={scene.imageSearchQuery}
-                    onChange={(e) => handleSceneTextChange(idx, 'imageSearchQuery', e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: '6px',
-                      background: 'rgba(255,255,255,0.02)',
-                      border: '1px solid var(--border-color)',
-                      color: '#fff',
-                      outline: 'none',
-                      fontSize: '0.85rem'
-                    }}
-                  />
-                  <div style={{ display: 'flex', justifySelf: 'space-between', marginTop: '6px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+              <div key={idx} className="glass-panel glass-panel-interactive" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', borderTop: '3px solid var(--color-cyan)', boxShadow: 'var(--shadow-sm)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--color-cyan)', fontFamily: 'var(--font-display)' }}>Scene #{idx + 1}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                     <span>Duration:</span>
                     <input 
                       type="number" 
                       value={scene.duration}
                       onChange={(e) => handleSceneTextChange(idx, 'duration', parseInt(e.target.value) || 5)}
+                      className="input-control"
                       style={{
-                        width: '38px',
-                        background: 'transparent',
-                        border: 'none',
-                        borderBottom: '1px solid var(--border-color)',
-                        color: '#fff',
+                        width: '44px',
+                        padding: '4px 6px',
                         textAlign: 'center',
-                        marginLeft: '4px'
+                        fontSize: '0.8rem',
+                        borderRadius: '6px'
                       }}
                     />
                     <span>s</span>
                   </div>
+                </div>
+                
+                <div>
+                  <label className="form-label" style={{ fontSize: '0.7rem' }}>Speech Narration & Subtitle</label>
+                  <textarea 
+                    value={scene.narratorText}
+                    onChange={(e) => handleSceneTextChange(idx, 'narratorText', e.target.value)}
+                    rows={3}
+                    className="input-control"
+                    style={{ resize: 'none', fontSize: '0.85rem', lineHeight: '1.4' }}
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label" style={{ fontSize: '0.7rem' }}>Stock Media Query</label>
+                  <input 
+                    type="text" 
+                    value={scene.imageSearchQuery}
+                    onChange={(e) => handleSceneTextChange(idx, 'imageSearchQuery', e.target.value)}
+                    className="input-control"
+                    style={{ fontSize: '0.85rem' }}
+                  />
                 </div>
               </div>
             ))}
@@ -550,51 +523,32 @@ export default function Creator({ isChannelConnected, settings, addToast, fetchU
           </div>
 
           {/* Right Column: Upload Metadata Form */}
-          <div className="glass-panel" style={{ padding: '28px', borderLeft: '4px solid var(--color-shorts)' }}>
-            <h3 style={{ fontSize: '1.3rem', marginBottom: '8px' }}>Metadata & Publish Settings</h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '24px' }}>
+          <div className="glass-panel" style={{ padding: '28px', borderLeft: '4px solid var(--color-shorts)', boxShadow: 'var(--shadow-glow)' }}>
+            <h3 style={{ fontSize: '1.3rem', marginBottom: '8px', fontFamily: 'var(--font-display)' }}>Metadata & Publish Settings</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '24px', lineHeight: '1.4' }}>
               Customize details for search engine optimization before pushing directly to your connected YouTube channel.
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Short Title (Max 100 chars)</label>
+                <label className="form-label">Short Title (Max 100 chars)</label>
                 <input 
                   type="text" 
                   value={publishMetadata.title}
                   onChange={(e) => setPublishMetadata(prev => ({ ...prev, title: e.target.value }))}
                   placeholder="Enter YouTube Title"
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    borderRadius: '6px',
-                    background: 'rgba(255,255,255,0.02)',
-                    border: '1px solid var(--border-color)',
-                    color: '#fff',
-                    outline: 'none',
-                    fontSize: '0.9rem'
-                  }}
+                  className="input-control"
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Description</label>
+                <label className="form-label">Description</label>
                 <textarea 
                   value={publishMetadata.description}
                   onChange={(e) => setPublishMetadata(prev => ({ ...prev, description: e.target.value }))}
                   rows={4}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    borderRadius: '6px',
-                    background: 'rgba(255,255,255,0.02)',
-                    border: '1px solid var(--border-color)',
-                    color: '#fff',
-                    outline: 'none',
-                    fontSize: '0.85rem',
-                    fontFamily: 'var(--font-sans)',
-                    resize: 'none'
-                  }}
+                  className="input-control"
+                  style={{ resize: 'none' }}
                 />
               </div>
 
@@ -605,30 +559,21 @@ export default function Creator({ isChannelConnected, settings, addToast, fetchU
                   id="scheduleCheck"
                   checked={publishMetadata.schedule}
                   onChange={(e) => setPublishMetadata(prev => ({ ...prev, schedule: e.target.checked }))}
-                  style={{ width: '16px', height: '16px', accentColor: 'var(--color-shorts)' }}
+                  style={{ width: '16px', height: '16px', accentColor: 'var(--color-shorts)', cursor: 'pointer' }}
                 />
-                <label htmlFor="scheduleCheck" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                <label htmlFor="scheduleCheck" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: 500 }}>
                   Schedule video for later upload
                 </label>
               </div>
 
               {publishMetadata.schedule && (
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Release Date & Time</label>
+                  <label className="form-label">Release Date & Time</label>
                   <input 
                     type="datetime-local" 
                     value={publishMetadata.scheduleTime}
                     onChange={(e) => setPublishMetadata(prev => ({ ...prev, scheduleTime: e.target.value }))}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      borderRadius: '6px',
-                      background: 'var(--bg-tertiary)',
-                      border: '1px solid var(--border-color)',
-                      color: '#fff',
-                      outline: 'none',
-                      fontSize: '0.9rem'
-                    }}
+                    className="input-control"
                   />
                 </div>
               )}

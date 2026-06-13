@@ -105,7 +105,7 @@ export default function Settings({ settings, fetchSettings, isChannelConnected, 
   };
 
   return (
-    <div style={{ maxWidth: '980px', margin: '0 auto' }}>
+    <div className="tab-fade-in" style={{ maxWidth: '980px', margin: '0 auto' }}>
       {/* Header */}
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
@@ -124,8 +124,8 @@ export default function Settings({ settings, fetchSettings, isChannelConnected, 
 
       {/* Guide Banner */}
       {showGuide && (
-        <div className="glass-panel" style={{ padding: '24px', marginBottom: '24px', borderLeft: '4px solid var(--color-cyan)' }}>
-          <h3 style={{ marginBottom: '14px', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="glass-panel" style={{ padding: '24px', marginBottom: '24px', borderLeft: '4px solid var(--color-cyan)', boxShadow: 'var(--shadow-glow-cyan)' }}>
+          <h3 style={{ marginBottom: '14px', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'var(--font-display)' }}>
             <Link2 size={18} color="var(--color-cyan)" /> Google API Credentials Setup Guide
           </h3>
           <ol style={{ paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
@@ -152,95 +152,59 @@ export default function Settings({ settings, fetchSettings, isChannelConnected, 
         {/* Left Column: API Form */}
         <form onSubmit={handleSaveSettings} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           {/* Section: credentials */}
-          <div className="glass-panel" style={{ padding: '24px' }}>
-            <h3 style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1.2rem' }}>
+          <div className="glass-panel" style={{ padding: '24px', borderLeft: '4px solid var(--color-shorts)', boxShadow: 'var(--shadow-glow)' }}>
+            <h3 style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1.2rem', fontFamily: 'var(--font-display)' }}>
               <Key size={18} color="var(--color-shorts)" /> API Credentials
             </h3>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>YouTube Client ID</label>
+                <label className="form-label">YouTube Client ID</label>
                 <input 
                   type="text" 
                   name="youtubeClientId"
                   value={formData.youtubeClientId || ''}
                   onChange={handleChange}
                   placeholder="Paste your OAuth Client ID"
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    background: 'rgba(255,255,255,0.03)',
-                    border: '1px solid var(--border-color)',
-                    color: '#fff',
-                    outline: 'none',
-                    fontSize: '0.9rem'
-                  }}
+                  className="input-control"
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>YouTube Client Secret</label>
+                <label className="form-label">YouTube Client Secret</label>
                 <input 
                   type="password" 
                   name="youtubeClientSecret"
                   value={formData.youtubeClientSecret || ''}
                   onChange={handleChange}
                   placeholder="Paste your OAuth Client Secret"
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    background: 'rgba(255,255,255,0.03)',
-                    border: '1px solid var(--border-color)',
-                    color: '#fff',
-                    outline: 'none',
-                    fontSize: '0.9rem'
-                  }}
+                  className="input-control"
                 />
               </div>
 
               <div style={{ borderTop: '1px solid var(--border-color)', margin: '10px 0' }}></div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Gemini API Key (Scripting)</label>
+                <label className="form-label">Gemini API Key (Scripting)</label>
                 <input 
                   type="password" 
                   name="geminiApiKey"
                   value={formData.geminiApiKey || ''}
                   onChange={handleChange}
                   placeholder="AI prompt script generator key"
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    background: 'rgba(255,255,255,0.03)',
-                    border: '1px solid var(--border-color)',
-                    color: '#fff',
-                    outline: 'none',
-                    fontSize: '0.9rem'
-                  }}
+                  className="input-control"
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Pexels API Key (Stock Footage)</label>
+                <label className="form-label">Pexels API Key (Stock Footage)</label>
                 <input 
                   type="password" 
                   name="pexelsApiKey"
                   value={formData.pexelsApiKey || ''}
                   onChange={handleChange}
                   placeholder="Free Pexels developer key"
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    background: 'rgba(255,255,255,0.03)',
-                    border: '1px solid var(--border-color)',
-                    color: '#fff',
-                    outline: 'none',
-                    fontSize: '0.9rem'
-                  }}
+                  className="input-control"
                 />
               </div>
             </div>
@@ -326,70 +290,42 @@ export default function Settings({ settings, fetchSettings, isChannelConnected, 
           </div>
 
           {/* Default Upload Settings */}
-          <div className="glass-panel" style={{ padding: '24px' }}>
-            <h3 style={{ marginBottom: '20px', fontSize: '1.2rem' }}>Default Short Metadata</h3>
+          <div className="glass-panel" style={{ padding: '24px', boxShadow: 'var(--shadow-sm)' }}>
+            <h3 style={{ marginBottom: '20px', fontSize: '1.2rem', fontFamily: 'var(--font-display)' }}>Default Short Metadata</h3>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Default Description Footer</label>
+                <label className="form-label">Default Description Footer</label>
                 <textarea 
                   name="defaultDescription"
                   value={formData.defaultDescription || ''}
                   onChange={handleChange}
                   rows={3}
                   placeholder="Enter standard descriptions or links (e.g. Subscribe!)"
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    background: 'rgba(255,255,255,0.03)',
-                    border: '1px solid var(--border-color)',
-                    color: '#fff',
-                    outline: 'none',
-                    fontSize: '0.9rem',
-                    resize: 'none',
-                    fontFamily: 'var(--font-sans)'
-                  }}
+                  className="input-control"
+                  style={{ resize: 'none' }}
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Default Tags</label>
+                <label className="form-label">Default Tags</label>
                 <input 
                   type="text" 
                   name="defaultTags"
                   value={formData.defaultTags || ''}
                   onChange={handleChange}
                   placeholder="shorts, ai, comedy, educational"
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    background: 'rgba(255,255,255,0.03)',
-                    border: '1px solid var(--border-color)',
-                    color: '#fff',
-                    outline: 'none',
-                    fontSize: '0.9rem'
-                  }}
+                  className="input-control"
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Video Category</label>
+                <label className="form-label">Video Category</label>
                 <select 
                   name="defaultCategory"
                   value={formData.defaultCategory || '22'}
                   onChange={handleChange}
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    background: 'var(--bg-tertiary)',
-                    border: '1px solid var(--border-color)',
-                    color: '#fff',
-                    outline: 'none',
-                    fontSize: '0.9rem'
-                  }}
+                  className="input-control input-control-select"
                 >
                   <option value="1">Film & Animation</option>
                   <option value="2">Autos & Vehicles</option>

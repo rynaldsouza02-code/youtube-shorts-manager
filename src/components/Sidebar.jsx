@@ -13,7 +13,9 @@ export default function Sidebar({ currentPage, setCurrentPage, channelInfo, isCh
     <div style={{
       width: '240px',
       height: '100vh',
-      backgroundColor: 'var(--bg-secondary)',
+      backgroundColor: 'var(--bg-glass)',
+      backdropFilter: 'blur(25px)',
+      WebkitBackdropFilter: 'blur(25px)',
       borderRight: '1px solid var(--border-color)',
       position: 'fixed',
       left: 0,
@@ -27,30 +29,33 @@ export default function Sidebar({ currentPage, setCurrentPage, channelInfo, isCh
       <div style={{
         display: 'flex',
         alignItems: 'center',
-        gap: '10px',
+        gap: '12px',
         marginBottom: '40px',
-        padding: '0 8px'
-      }}>
+        padding: '0 8px',
+        cursor: 'pointer'
+      }} onClick={() => setCurrentPage('dashboard')}>
         <div style={{
           backgroundColor: 'var(--color-shorts)',
-          width: '32px',
-          height: '32px',
-          borderRadius: '8px',
+          width: '36px',
+          height: '36px',
+          borderRadius: '10px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          boxShadow: 'var(--shadow-glow)'
-        }}>
-          <Youtube size={20} color="#ffffff" />
+          boxShadow: 'var(--shadow-glow)',
+          transition: 'transform 0.3s ease'
+        }} className="animate-float">
+          <Youtube size={22} color="#ffffff" />
         </div>
         <span style={{
           fontFamily: 'var(--font-display)',
-          fontWeight: 800,
-          fontSize: '1.25rem',
-          letterSpacing: '-0.02em',
-          background: 'linear-gradient(135deg, #fff 40%, var(--text-secondary) 100%)',
+          fontWeight: 900,
+          fontSize: '1.35rem',
+          letterSpacing: '-0.03em',
+          background: 'var(--grad-shorts)',
           WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent'
+          WebkitTextFillColor: 'transparent',
+          textShadow: '0 0 30px rgba(255, 46, 85, 0.2)'
         }}>
           AutoShorts
         </span>
@@ -71,34 +76,39 @@ export default function Sidebar({ currentPage, setCurrentPage, channelInfo, isCh
                 gap: '12px',
                 width: '100%',
                 padding: '12px 16px',
-                borderRadius: '8px',
+                borderRadius: '10px',
                 border: 'none',
-                background: isActive ? 'rgba(255, 46, 85, 0.12)' : 'transparent',
-                color: isActive ? 'var(--color-shorts)' : 'var(--text-secondary)',
+                background: isActive ? 'rgba(255, 46, 85, 0.08)' : 'transparent',
+                color: isActive ? '#ffffff' : 'var(--text-secondary)',
                 fontFamily: 'var(--font-sans)',
                 fontWeight: isActive ? 600 : 500,
                 fontSize: '0.95rem',
                 cursor: 'pointer',
                 textAlign: 'left',
-                transition: 'all 0.2s ease',
+                transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
                 outline: 'none',
-                borderLeft: isActive ? '3px solid var(--color-shorts)' : '3px solid transparent'
+                borderLeft: isActive ? '4px solid var(--color-shorts)' : '4px solid transparent',
+                boxShadow: isActive ? '0 4px 12px rgba(255, 46, 85, 0.05)' : 'none'
               }}
-              className={!isActive ? 'btn-secondary-hover-opacity' : ''}
               onMouseEnter={(e) => {
                 if (!isActive) {
                   e.currentTarget.style.color = '#ffffff';
-                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)';
+                  e.currentTarget.style.borderLeft = '4px solid rgba(255, 255, 255, 0.15)';
                 }
               }}
               onMouseLeave={(e) => {
                 if (!isActive) {
                   e.currentTarget.style.color = 'var(--text-secondary)';
                   e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.borderLeft = '4px solid transparent';
                 }
               }}
             >
-              <Icon size={18} />
+              <Icon size={18} style={{
+                color: isActive ? 'var(--color-shorts)' : 'inherit',
+                transition: 'color 0.3s ease'
+              }} />
               {item.label}
             </button>
           );
@@ -108,24 +118,26 @@ export default function Sidebar({ currentPage, setCurrentPage, channelInfo, isCh
       {/* Integration Card at Bottom */}
       <div style={{
         marginTop: 'auto',
-        background: 'rgba(255, 255, 255, 0.02)',
+        background: 'rgba(255, 255, 255, 0.01)',
+        backdropFilter: 'blur(10px)',
         border: '1px solid var(--border-color)',
-        borderRadius: '12px',
+        borderRadius: '16px',
         padding: '16px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '12px'
+        gap: '12px',
+        boxShadow: 'inset 0 0 12px rgba(255, 255, 255, 0.01)'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {isChannelConnected ? (
             <>
-              <CheckCircle2 size={16} color="var(--color-success)" />
-              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-success)' }}>Connected</span>
+              <span className="pulse-dot success" />
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-success)', letterSpacing: '0.02em', textTransform: 'uppercase' }}>Connected</span>
             </>
           ) : (
             <>
-              <AlertTriangle size={16} color="var(--color-warning)" />
-              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-warning)' }}>Offline</span>
+              <span className="pulse-dot warning" />
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-warning)', letterSpacing: '0.02em', textTransform: 'uppercase' }}>Offline</span>
             </>
           )}
         </div>
@@ -136,10 +148,11 @@ export default function Sidebar({ currentPage, setCurrentPage, channelInfo, isCh
               src={channelInfo.avatar} 
               alt={channelInfo.title} 
               style={{
-                width: '32px',
-                height: '32px',
+                width: '36px',
+                height: '36px',
                 borderRadius: '50%',
-                border: '1px solid rgba(255,255,255,0.1)'
+                border: '2px solid rgba(255, 46, 85, 0.2)',
+                boxShadow: 'var(--shadow-glow)'
               }}
             />
             <div style={{ overflow: 'hidden' }}>
@@ -159,13 +172,13 @@ export default function Sidebar({ currentPage, setCurrentPage, channelInfo, isCh
           </div>
         ) : (
           <div>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '8px', lineHeight: '1.4' }}>
               Connect your YouTube channel in settings to begin.
             </p>
             <button 
               onClick={() => setCurrentPage('settings')}
               className="btn btn-outline" 
-              style={{ width: '100%', padding: '6px 12px', fontSize: '0.8rem' }}
+              style={{ width: '100%', padding: '8px 12px', fontSize: '0.8rem', borderRadius: '8px' }}
             >
               Connect
             </button>
