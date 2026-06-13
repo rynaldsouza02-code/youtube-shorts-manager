@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Youtube } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
 import Creator from './pages/Creator';
@@ -6,6 +7,7 @@ import Scheduler from './pages/Scheduler';
 import Settings from './pages/Settings';
 
 export default function App() {
+  const [isIntroActive, setIsIntroActive] = useState(true);
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [channelInfo, setChannelInfo] = useState(null);
   const [isChannelConnected, setIsChannelConnected] = useState(false);
@@ -24,6 +26,14 @@ export default function App() {
   const [uploads, setUploads] = useState([]);
   const [isAutopilotCompiling, setIsAutopilotCompiling] = useState(false);
   const [compilingTitle, setCompilingTitle] = useState('');
+
+  // Intro splash screen timeout
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsIntroActive(false);
+    }, 2200);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Toast helper
   const addToast = (message, type = 'info') => {
@@ -451,6 +461,63 @@ export default function App() {
           </div>
         ))}
       </div>
+
+      {/* Intro Splash Screen Overlay */}
+      {isIntroActive && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: '#05060b',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999,
+          animation: 'fadeOutIntro 0.5s cubic-bezier(0.16, 1, 0.3, 1) 1.6s forwards',
+          backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(255, 46, 85, 0.08) 0%, transparent 50%)'
+        }}>
+          <div style={{
+            backgroundColor: 'var(--color-shorts)',
+            width: '80px',
+            height: '80px',
+            borderRadius: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: 'var(--shadow-glow), 0 0 50px rgba(255, 46, 85, 0.3)',
+            animation: 'zoomInLogo 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards'
+          }}>
+            <Youtube size={40} color="#ffffff" />
+          </div>
+          <h1 style={{
+            marginTop: '24px',
+            fontFamily: 'var(--font-display)',
+            fontWeight: 900,
+            fontSize: '2.1rem',
+            letterSpacing: '-0.03em',
+            background: 'var(--grad-shorts)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            animation: 'fadeInText 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards',
+            opacity: 0,
+            transform: 'translateY(12px)'
+          }}>
+            AutoShorts
+          </h1>
+          <p style={{
+            marginTop: '8px',
+            fontSize: '0.85rem',
+            color: 'var(--text-secondary)',
+            letterSpacing: '0.05em',
+            textTransform: 'uppercase',
+            fontWeight: 600,
+            animation: 'fadeInText 1s ease 0.6s forwards',
+            opacity: 0
+          }}>
+            AI Video Compiler
+          </p>
+        </div>
+      )}
     </div>
   );
 }
