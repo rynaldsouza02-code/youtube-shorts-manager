@@ -57,6 +57,15 @@ export default function App() {
       if (data.connected) {
         setIsChannelConnected(true);
         setChannelInfo(data.channel);
+        
+        // Cache tokens in client storage
+        const tokensRes = await fetch('/api/tokens');
+        if (tokensRes.ok) {
+          const tokensData = await tokensRes.json();
+          if (tokensData.tokens) {
+            localStorage.setItem('autoshorts_tokens', JSON.stringify(tokensData.tokens));
+          }
+        }
       } else {
         setIsChannelConnected(false);
         setChannelInfo(null);
@@ -73,6 +82,7 @@ export default function App() {
       const data = await res.json();
       if (data && Object.keys(data).length > 0) {
         setSettings(data);
+        localStorage.setItem('autoshorts_settings', JSON.stringify(data));
       }
     } catch (err) {
       console.error('Failed to load settings:', err);
@@ -85,6 +95,7 @@ export default function App() {
       const res = await fetch('/api/uploads');
       const data = await res.json();
       setUploads(data);
+      localStorage.setItem('autoshorts_uploads', JSON.stringify(data));
     } catch (err) {
       console.error('Failed to fetch upload list:', err);
     }
@@ -92,9 +103,46 @@ export default function App() {
 
   // Initial Boot Data Sync
   useEffect(() => {
-    fetchChannelStatus();
-    fetchSettings();
-    fetchUploads();
+    const syncAndLoad = async () => {
+      // 1. Read local storage
+      let localSettings = null;
+      let localTokens = null;
+      let localUploads = null;
+      try {
+        const s = localStorage.getItem('autoshorts_settings');
+        if (s) localSettings = JSON.parse(s);
+        const t = localStorage.getItem('autoshorts_tokens');
+        if (t) localTokens = JSON.parse(t);
+        const u = localStorage.getItem('autoshorts_uploads');
+        if (u) localUploads = JSON.parse(u);
+      } catch (e) {
+        console.error('Failed to parse localStorage on boot:', e);
+      }
+
+      // 2. Sync with server (essential for Vercel restarts)
+      if (localSettings || localTokens || localUploads) {
+        try {
+          await fetch('/api/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              settings: localSettings,
+              tokens: localTokens,
+              uploads: localUploads
+            })
+          });
+        } catch (err) {
+          console.error('Failed to sync client state with server:', err);
+        }
+      }
+
+      // 3. Load initial data from the synchronized server
+      await fetchChannelStatus();
+      await fetchSettings();
+      await fetchUploads();
+    };
+
+    syncAndLoad();
   }, []);
 
   // Poll upload history every 10 seconds to sync list and autopilot items

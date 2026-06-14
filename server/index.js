@@ -121,6 +121,54 @@ app.post('/api/youtube/disconnect', (req, res) => {
   }
 });
 
+// Endpoint to retrieve active YouTube credentials/tokens for client local caching
+app.get('/api/tokens', (req, res) => {
+  try {
+    const tokens = getDBKey('tokens');
+    res.json({ tokens });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Endpoint to restore client local configurations to server temporary storage (essential for Vercel)
+app.post('/api/sync', (req, res) => {
+  try {
+    const { settings, tokens, uploads } = req.body;
+    const db = readDB();
+    let updated = false;
+
+    if (settings && Object.keys(settings).length > 0) {
+      db.settings = { ...db.settings, ...settings };
+      updated = true;
+    }
+    if (tokens) {
+      db.tokens = tokens;
+      updated = true;
+    }
+    if (uploads && Array.isArray(uploads) && uploads.length > 0) {
+      // Restore history uploads that are missing
+      if (!db.uploads) db.uploads = [];
+      const existingIds = new Set(db.uploads.map(u => u.id));
+      uploads.forEach(item => {
+        if (item && item.id && !existingIds.has(item.id)) {
+          db.uploads.push(item);
+        }
+      });
+      // Sort uploads chronologically by creation time
+      db.uploads.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      updated = true;
+    }
+
+    if (updated) {
+      writeDB(db);
+    }
+    res.json({ success: true, settings: db.settings, hasTokens: !!db.tokens });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ================= GENERATION ENDPOINTS =================
 
 // Generate AI Storyboard Script

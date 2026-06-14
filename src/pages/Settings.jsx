@@ -108,6 +108,7 @@ export default function Settings({ settings, fetchSettings, isChannelConnected, 
     try {
       const res = await fetch('/api/youtube/disconnect', { method: 'POST' });
       if (res.ok) {
+        localStorage.removeItem('autoshorts_tokens');
         addToast('YouTube channel disconnected.', 'info');
         fetchChannelStatus();
       } else {
