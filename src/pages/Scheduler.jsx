@@ -16,8 +16,18 @@ export default function Scheduler({ settings, fetchSettings, uploads, fetchUploa
     try {
       const res = await fetch('/api/autopilot/trigger', { method: 'POST' });
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to trigger autopilot manual run');
+        let errorMsg = 'Failed to trigger autopilot manual run';
+        try {
+          const contentType = res.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const data = await res.json();
+            errorMsg = data.error || errorMsg;
+          } else {
+            const rawText = await res.text();
+            errorMsg = rawText.slice(0, 150) || errorMsg;
+          }
+        } catch (e) {}
+        throw new Error(errorMsg);
       }
       addToast('Autopilot script generated successfully! Compiling will start shortly.', 'success');
       fetchUploads();

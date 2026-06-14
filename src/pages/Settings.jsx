@@ -75,6 +75,20 @@ export default function Settings({ settings, fetchSettings, isChannelConnected, 
 
     try {
       const res = await fetch('/auth/youtube');
+      if (!res.ok) {
+        let errorMsg = 'Failed to fetch YouTube auth redirect URL';
+        try {
+          const contentType = res.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const data = await res.json();
+            errorMsg = data.error || errorMsg;
+          } else {
+            const rawText = await res.text();
+            errorMsg = rawText.slice(0, 150) || errorMsg;
+          }
+        } catch (e) {}
+        throw new Error(errorMsg);
+      }
       const data = await res.json();
       if (data.url) {
         addToast('Redirecting to Google Consent screen...', 'info');
