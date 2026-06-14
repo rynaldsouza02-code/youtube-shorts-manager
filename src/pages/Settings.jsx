@@ -107,7 +107,7 @@ export default function Settings({ settings, fetchSettings, isChannelConnected, 
   return (
     <div className="tab-fade-in" style={{ maxWidth: '980px', margin: '0 auto' }}>
       {/* Header */}
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="responsive-page-header">
         <div>
           <h1 className="page-title"><SettingsIcon size={28} color="var(--color-shorts)" /> Settings</h1>
           <p className="page-subtitle">Configure credentials, API access keys, and channel details.</p>
@@ -148,7 +148,7 @@ export default function Settings({ settings, fetchSettings, isChannelConnected, 
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+      <div className="grid-two-col">
         {/* Left Column: API Form */}
         <form onSubmit={handleSaveSettings} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           {/* Section: credentials */}

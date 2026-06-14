@@ -251,7 +251,7 @@ export default function Creator({ isChannelConnected, settings, addToast, fetchU
               />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <div className="grid-two-col" style={{ gap: '16px' }}>
               <div>
                 <label className="form-label">Script Style Tone</label>
                 <select 
@@ -401,7 +401,7 @@ export default function Creator({ isChannelConnected, settings, addToast, fetchU
 
       {/* ================= STEP 3: PREVIEW & COMPILE ================= */}
       {currentStep === 3 && (
-        <div style={{ display: 'grid', gridTemplateColumns: '400px 1fr', gap: '30px' }}>
+        <div className="grid-sidebar-layout">
           {/* Left Column: Mobile Simulator */}
           <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <PreviewPlayer 
@@ -469,7 +469,7 @@ export default function Creator({ isChannelConnected, settings, addToast, fetchU
 
       {/* ================= STEP 4: METADATA & UPLOAD ================= */}
       {currentStep === 4 && !uploadSuccessData && (
-        <div style={{ display: 'grid', gridTemplateColumns: '400px 1fr', gap: '30px' }}>
+        <div className="grid-sidebar-layout">
           {/* Left Column: Compilation Details */}
           <div className="glass-panel" style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '24px', alignItems: 'center', textAlign: 'center' }}>
             <div style={{

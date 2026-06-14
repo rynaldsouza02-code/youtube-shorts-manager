@@ -82,7 +82,7 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
   return (
     <div className="tab-fade-in" style={{ maxWidth: '1140px', margin: '0 auto', position: 'relative' }}>
       {/* Header */}
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+      <div className="responsive-page-header">
         <div>
           <h1 className="page-title"><LayoutDashboard size={28} color="var(--color-shorts)" /> YouTube Manager</h1>
           <p className="page-subtitle">Completely manage your Shorts content compilation, scheduled uploads, and real-time statistics.</p>
@@ -161,7 +161,7 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
       </div>
 
       {/* Tabs Menu */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '2px' }}>
+      <div className="responsive-tabs">
         <button 
           onClick={() => setActiveTab('videos')}
           style={{
@@ -608,7 +608,7 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
               </div>
 
               {/* Metrics Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+              <div className="responsive-modal-metrics">
                 <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', textAlign: 'center' }}>
                   <Eye size={18} color="var(--color-cyan)" style={{ marginBottom: '6px' }} />
                   <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Views</span>

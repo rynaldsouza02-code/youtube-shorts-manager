@@ -95,7 +95,7 @@ export default function Scheduler({ settings, fetchSettings, uploads, fetchUploa
         <p className="page-subtitle">Configure fully automated Shorts creation and release schedules.</p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '400px 1fr', gap: '30px' }}>
+      <div className="grid-sidebar-layout">
         {/* Left Column: Autopilot Config & Control */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           <form onSubmit={handleSaveAutopilot} className="glass-panel" style={{ padding: '24px', height: 'fit-content', borderLeft: '4px solid var(--color-shorts)', boxShadow: 'var(--shadow-glow)' }}>
