@@ -4,7 +4,11 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DB_PATH = path.join(__dirname, 'data', 'db.json');
+
+const isVercel = process.env.VERCEL || process.env.NOW_BUILDER;
+const DB_PATH = isVercel
+  ? path.join('/tmp', 'db.json')
+  : path.join(__dirname, 'data', 'db.json');
 
 // Initialize database with default structure if not exists
 function initDB() {
