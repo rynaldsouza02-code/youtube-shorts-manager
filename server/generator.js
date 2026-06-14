@@ -7,7 +7,10 @@ import { getDBKey } from './db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const TEMP_DIR = path.join(__dirname, 'data', 'temp');
+const isVercel = process.env.VERCEL || process.env.NOW_BUILDER;
+const TEMP_DIR = isVercel
+  ? path.join('/tmp', 'temp')
+  : path.join(__dirname, 'data', 'temp');
 
 // Ensure temp directory exists for generated assets
 function ensureTempDir() {
