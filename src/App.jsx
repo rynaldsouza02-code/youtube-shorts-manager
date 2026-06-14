@@ -169,7 +169,22 @@ export default function App() {
         });
 
         if (!uploadRes.ok) {
-          throw new Error(`Upload server responded with ${uploadRes.status}`);
+          let errorMsg = `Upload server responded with status ${uploadRes.status}`;
+          try {
+            const contentType = uploadRes.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+              const errData = await uploadRes.json();
+              errorMsg = errData.error || errorMsg;
+            } else {
+              const rawText = await uploadRes.text();
+              if (rawText.includes('Request Entity Too Large') || uploadRes.status === 413) {
+                errorMsg = 'Video size exceeds Vercel upload limit (4.5MB). Try compiling again (our lowered 2 Mbps bitrate will help) or use local hosting.';
+              } else {
+                errorMsg = rawText.slice(0, 150) || errorMsg;
+              }
+            }
+          } catch (e) {}
+          throw new Error(errorMsg);
         }
 
         const uploadData = await uploadRes.json();
@@ -211,7 +226,47 @@ export default function App() {
           await audioCtx.resume();
         }
 
-        // 2. Play background music in the background (silent to the user!)
+        // 2. Preload visual and audio assets
+        const preloadedVisuals = [];
+        const audioObjectUrls = [];
+        const audioDurations = [];
+
+        await Promise.all(scenes.map(async (scene, index) => {
+          // Preload visual asset
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.src = scene.assetUrl;
+          await new Promise(r => { img.onload = r; img.onerror = r; });
+          preloadedVisuals[index] = img;
+
+          // Preload audio asset
+          if (scene.audioUrl) {
+            try {
+              const res = await fetch(scene.audioUrl);
+              const blob = await res.blob();
+              const objectUrl = URL.createObjectURL(blob);
+              audioObjectUrls[index] = objectUrl;
+
+              // Extract actual duration
+              const tempAudio = new Audio(objectUrl);
+              const duration = await new Promise(resolve => {
+                tempAudio.onloadedmetadata = () => resolve(tempAudio.duration);
+                tempAudio.onerror = () => resolve(scene.duration || 6);
+                setTimeout(() => resolve(scene.duration || 6), 2000);
+              });
+              audioDurations[index] = duration || scene.duration || 6;
+            } catch (err) {
+              console.warn(`[Autopilot Preload Warn] Audio preload failed for scene ${index+1}:`, err);
+              audioObjectUrls[index] = scene.audioUrl;
+              audioDurations[index] = scene.duration || 6;
+            }
+          } else {
+            audioObjectUrls[index] = null;
+            audioDurations[index] = scene.duration || 6;
+          }
+        }));
+
+        // 3. Play background music in the background (silent to the user!)
         const musicTracks = {
           cinematic: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
           upbeat: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
@@ -229,17 +284,35 @@ export default function App() {
         musicSource.connect(musicGain);
         musicGain.connect(dest); // Connect to stream only (no speaker output!)
 
+        // Reuse a single speech audio element and source node to prevent Web Audio leaks
+        const speechAudio = new Audio();
+        speechAudio.crossOrigin = 'anonymous';
+        const speechSource = audioCtx.createMediaElementSource(speechAudio);
+        speechSource.connect(dest);
+
+        // Wait for background music to buffer
+        await new Promise((resolve) => {
+          if (music.readyState >= 2) resolve();
+          else {
+            music.oncanplay = resolve;
+            setTimeout(resolve, 2000);
+          }
+        });
+
         // Start playing background music
         music.play().catch(e => console.log('[Autopilot Music Blocked]:', e.message));
 
-        // 3. Setup Media Recorder on the Canvas Stream + Web Audio destination
+        // 4. Setup Media Recorder on the Canvas Stream + Web Audio destination
         const videoStream = canvas.captureStream(30); // 30 FPS
         const combinedStream = new MediaStream([
           ...videoStream.getVideoTracks(),
           ...dest.stream.getAudioTracks()
         ]);
 
-        const recorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm;codecs=vp9' });
+        const recorder = new MediaRecorder(combinedStream, { 
+          mimeType: 'video/webm;codecs=vp9',
+          videoBitsPerSecond: 2000000 // 2 Mbps limit for size optimization
+        });
         const chunks = [];
 
         recorder.ondataavailable = (e) => {
@@ -249,7 +322,14 @@ export default function App() {
         recorder.onstop = () => {
           try {
             music.pause();
+            speechAudio.pause();
           } catch (e) {}
+          // Revoke all Object URLs to avoid memory leaks
+          audioObjectUrls.forEach(url => {
+            if (url && url.startsWith('blob:')) {
+              URL.revokeObjectURL(url);
+            }
+          });
           const blob = new Blob(chunks, { type: 'video/webm' });
           resolve(blob);
         };
@@ -259,36 +339,57 @@ export default function App() {
         // Sequential rendering of scenes
         for (let i = 0; i < scenes.length; i++) {
           const scene = scenes[i];
-          
-          // Preload Image
-          const img = new Image();
-          img.crossOrigin = "anonymous";
-          img.src = scene.assetUrl;
-          await new Promise(r => { img.onload = r; img.onerror = r; });
+          const img = preloadedVisuals[i];
+          const audioUrl = audioObjectUrls[i];
+          const duration = audioDurations[i] * 1000; // ms
 
-          // Preload voice MP3
-          const audio = new Audio(scene.audioUrl);
-          audio.crossOrigin = "anonymous";
-          
-          // Route voice through Web Audio destination (so it gets recorded silently)
-          const voiceSource = audioCtx.createMediaElementSource(audio);
-          voiceSource.connect(dest); // Connect to stream only (no speaker output!)
-          
-          let duration = scene.duration * 1000;
-          let startTime = Date.now();
+          speechAudio.src = audioUrl || '';
+          speechAudio.currentTime = 0;
+
+          // Wait for voice narration to buffer
+          await new Promise((resolve) => {
+            if (speechAudio.readyState >= 2 || !audioUrl) resolve();
+            else {
+              speechAudio.oncanplay = resolve;
+              setTimeout(resolve, 2000);
+            }
+          });
 
           // Play Audio (silently routed to stream)
-          audio.play().catch(() => console.log('Audio autoplay blocked in headless'));
+          if (audioUrl) {
+            speechAudio.play().catch(() => console.log('Audio autoplay blocked in headless'));
+          }
+          
+          let startTime = Date.now();
+          let elapsed = 0;
 
-          // Draw loop for this scene duration
-          while (Date.now() - startTime < duration) {
-            const elapsed = Date.now() - startTime;
-            const progress = elapsed / duration;
+          // Draw loop for this scene duration, driven by audio currentTime playhead
+          while (true) {
+            elapsed = Date.now() - startTime;
+            
+            let progress = 0;
+            if (audioUrl && !speechAudio.paused && speechAudio.duration > 0) {
+              progress = Math.min(speechAudio.currentTime / speechAudio.duration, 1);
+            } else {
+              progress = Math.min(elapsed / duration, 1);
+            }
+
+            // Check if scene is finished
+            let isSceneFinished = false;
+            if (elapsed > 200) {
+              if (audioUrl && !speechAudio.paused) {
+                isSceneFinished = speechAudio.ended || (speechAudio.currentTime >= speechAudio.duration - 0.05) || (elapsed >= duration);
+              } else {
+                isSceneFinished = elapsed >= duration;
+              }
+            } else {
+              isSceneFinished = elapsed >= duration;
+            }
 
             ctx.clearRect(0, 0, 1080, 1920);
 
             // Draw image with gentle zoom
-            if (img.complete && img.naturalWidth > 0) {
+            if (img && img.complete && img.naturalWidth > 0) {
               const zoom = 1 + (progress * 0.1); // zoom 10%
               const w = canvas.width * zoom;
               const h = canvas.height * zoom;
@@ -349,12 +450,16 @@ export default function App() {
               ctx.fillText(lineObj.text.toUpperCase(), startX, wordY);
             });
 
+            if (isSceneFinished) {
+              break;
+            }
+
             // Frame delay
             await new Promise(r => setTimeout(r, 33)); // ~30 FPS
           }
           
           try {
-            audio.pause();
+            speechAudio.pause();
           } catch (e) {}
         }
 

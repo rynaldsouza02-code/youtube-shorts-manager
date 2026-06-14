@@ -187,8 +187,24 @@ export default function Creator({ isChannelConnected, settings, addToast, fetchU
       });
 
       if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || 'Video upload endpoint failed');
+        let errorMsg = 'Video upload failed';
+        try {
+          const contentType = res.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const errData = await res.json();
+            errorMsg = errData.error || errorMsg;
+          } else {
+            const rawText = await res.text();
+            if (rawText.includes('Request Entity Too Large') || res.status === 413) {
+              errorMsg = 'Video file size exceeds server upload limit (Vercel limits uploads to 4.5MB). Try compiling again (our lowered 2 Mbps bitrate will help) or use local hosting.';
+            } else {
+              errorMsg = rawText.slice(0, 150) || `Server error (HTTP ${res.status})`;
+            }
+          }
+        } catch (e) {
+          errorMsg = `Server error (HTTP ${res.status}): ${res.statusText || 'Unknown error'}`;
+        }
+        throw new Error(errorMsg);
       }
 
       const data = await res.json();

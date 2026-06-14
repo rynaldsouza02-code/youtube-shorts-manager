@@ -27,6 +27,10 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
   const sceneStartTimeRef = useRef(0);
   const accumulatedTimeRef = useRef(0);
 
+  // Preloaded audio assets
+  const audioObjectUrlsRef = useRef([]);
+  const audioDurationsRef = useRef([]);
+
   // Background Music tracks (high-quality public royalty-free loops)
   const musicTracks = {
     cinematic: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
@@ -35,7 +39,11 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
     dark: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-16.mp3'
   };
 
-  const totalDuration = scenes.reduce((sum, s) => sum + s.duration, 0) * 1000; // ms
+  const getSceneDuration = (idx) => {
+    return (audioDurationsRef.current[idx] || scenes[idx]?.duration || 6) * 1000; // ms
+  };
+
+  const totalDuration = scenes.reduce((sum, s, idx) => sum + (audioDurationsRef.current[idx] || s.duration || 6), 0) * 1000; // ms
 
   // Load and cache all images & audios
   const [assetsLoaded, setAssetsLoaded] = useState(false);
@@ -60,89 +68,148 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
     });
     imageElementsRef.current = [];
 
-    let loadedCount = 0;
-    const checkAllLoaded = () => {
-      loadedCount++;
-      if (loadedCount === scenes.length) {
-        setAssetsLoaded(true);
-        setTimeout(() => {
-          drawStaticPreview();
-        }, 50);
+    // Revoke previous Object URLs to prevent memory leaks
+    audioObjectUrlsRef.current.forEach(url => {
+      if (url && url.startsWith('blob:')) {
+        URL.revokeObjectURL(url);
+      }
+    });
+    audioObjectUrlsRef.current = [];
+    audioDurationsRef.current = [];
+
+    let active = true;
+
+    const preloadAssets = async () => {
+      try {
+        const promises = scenes.map(async (scene, index) => {
+          // 1. Preload visual asset (image or video)
+          const isVideo = scene.assetType === 'video' || (scene.assetUrl && (scene.assetUrl.includes('.mp4') || scene.assetUrl.includes('video')));
+          
+          let visualEl = null;
+          if (isVideo) {
+            visualEl = await new Promise((resolve) => {
+              const video = document.createElement('video');
+              video.crossOrigin = 'anonymous';
+              video.muted = true;
+              video.playsInline = true;
+              video.loop = true;
+              video.src = scene.assetUrl;
+              
+              video.onloadeddata = () => {
+                resolve(video);
+              };
+              
+              video.onerror = () => {
+                console.warn(`Video failed to load for scene ${index + 1}. Using fallback image.`);
+                resolve(null);
+              };
+              video.load();
+            });
+          } else {
+            visualEl = await new Promise((resolve) => {
+              const img = new Image();
+              img.crossOrigin = 'anonymous';
+              img.src = scene.assetUrl;
+              
+              img.onload = () => {
+                resolve(img);
+              };
+              
+              img.onerror = () => {
+                console.warn(`Image failed to load for scene ${index + 1}. Using fallback image.`);
+                resolve(null);
+              };
+            });
+          }
+
+          // Generate fallback image if visual element failed
+          if (!visualEl) {
+            const fallbackCanvas = document.createElement('canvas');
+            fallbackCanvas.width = 1080; fallbackCanvas.height = 1920;
+            const fCtx = fallbackCanvas.getContext('2d');
+            fCtx.fillStyle = '#1e293b'; fCtx.fillRect(0,0,1080,1920);
+            
+            const fallbackImg = new Image();
+            await new Promise((resolve) => {
+              fallbackImg.onload = () => resolve();
+              fallbackImg.onerror = () => resolve();
+              fallbackImg.src = fallbackCanvas.toDataURL();
+            });
+            visualEl = fallbackImg;
+          }
+
+          if (active) {
+            imageElementsRef.current[index] = visualEl;
+          }
+
+          // 2. Preload speech audio asset and fetch actual duration
+          if (scene.audioUrl) {
+            try {
+              const res = await fetch(scene.audioUrl);
+              if (!res.ok) throw new Error(`Fetch audio returned status ${res.status}`);
+              const blob = await res.blob();
+              const objectUrl = URL.createObjectURL(blob);
+              
+              const tempAudio = new Audio(objectUrl);
+              const duration = await new Promise((resolve) => {
+                tempAudio.onloadedmetadata = () => {
+                  resolve(tempAudio.duration);
+                };
+                tempAudio.onerror = () => {
+                  resolve(scene.duration || 6);
+                };
+                // Fallback timeout in case loading hangs
+                setTimeout(() => resolve(scene.duration || 6), 2500);
+              });
+
+              if (active) {
+                audioObjectUrlsRef.current[index] = objectUrl;
+                audioDurationsRef.current[index] = duration || scene.duration || 6;
+              }
+            } catch (err) {
+              console.warn(`Failed to preload audio for scene ${index + 1}:`, err.message);
+              if (active) {
+                audioObjectUrlsRef.current[index] = scene.audioUrl;
+                audioDurationsRef.current[index] = scene.duration || 6;
+              }
+            }
+          } else {
+            if (active) {
+              audioObjectUrlsRef.current[index] = null;
+              audioDurationsRef.current[index] = scene.duration || 6;
+            }
+          }
+        });
+
+        await Promise.all(promises);
+
+        if (active) {
+          setAssetsLoaded(true);
+          setTimeout(() => {
+            drawStaticPreview();
+          }, 50);
+        }
+      } catch (err) {
+        console.error('Error preloading visual/audio assets:', err);
       }
     };
 
-    // Pre-load images and videos
-    scenes.forEach((scene, index) => {
-      const isVideo = scene.assetType === 'video' || (scene.assetUrl && (scene.assetUrl.includes('.mp4') || scene.assetUrl.includes('video')));
-      
-      if (isVideo) {
-        const video = document.createElement('video');
-        video.crossOrigin = 'anonymous';
-        video.muted = true;
-        video.playsInline = true;
-        video.loop = true;
-        video.src = scene.assetUrl;
-        
-        video.onloadeddata = () => {
-          imageElementsRef.current[index] = video;
-          checkAllLoaded();
-        };
-        
-        video.onerror = () => {
-          console.warn(`Video failed to load for scene ${index + 1}. Using fallback image.`);
-          const fallbackCanvas = document.createElement('canvas');
-          fallbackCanvas.width = 1080; fallbackCanvas.height = 1920;
-          const fCtx = fallbackCanvas.getContext('2d');
-          fCtx.fillStyle = '#1e293b'; fCtx.fillRect(0,0,1080,1920);
-          
-          const fallbackImg = new Image();
-          fallbackImg.onload = () => {
-            imageElementsRef.current[index] = fallbackImg;
-            checkAllLoaded();
-          };
-          fallbackImg.onerror = () => {
-            checkAllLoaded();
-          };
-          fallbackImg.src = fallbackCanvas.toDataURL();
-        };
-        video.load();
-      } else {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.src = scene.assetUrl;
-        
-        img.onload = () => {
-          imageElementsRef.current[index] = img;
-          checkAllLoaded();
-        };
-        
-        img.onerror = () => {
-          console.warn(`Image failed to load for scene ${index + 1}. Using fallback image.`);
-          const fallbackCanvas = document.createElement('canvas');
-          fallbackCanvas.width = 1080; fallbackCanvas.height = 1920;
-          const fCtx = fallbackCanvas.getContext('2d');
-          fCtx.fillStyle = '#1e293b'; fCtx.fillRect(0,0,1080,1920);
-          
-          const fallbackImg = new Image();
-          fallbackImg.onload = () => {
-            imageElementsRef.current[index] = fallbackImg;
-            checkAllLoaded();
-          };
-          fallbackImg.onerror = () => {
-            checkAllLoaded();
-          };
-          fallbackImg.src = fallbackCanvas.toDataURL();
-        };
-      }
-    });
+    preloadAssets();
 
     return () => {
+      active = false;
       stopPlayback();
       imageElementsRef.current.forEach(el => {
         if (el && el.tagName === 'VIDEO') {
           el.pause();
           el.src = '';
           el.load();
+        }
+      });
+      // Revoke created Object URLs on cleanup
+      audioObjectUrlsRef.current.forEach(url => {
+        if (url && url.startsWith('blob:')) {
+          URL.revokeObjectURL(url);
         }
       });
     };
@@ -241,7 +308,7 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
 
   const playSceneAudio = (index) => {
     if (index >= scenes.length || !speechAudioRef.current) return;
-    speechAudioRef.current.src = scenes[index].audioUrl;
+    speechAudioRef.current.src = audioObjectUrlsRef.current[index] || scenes[index].audioUrl;
     speechAudioRef.current.currentTime = 0;
     speechAudioRef.current.play().catch(e => console.log('Speech blocked:', e.message));
   };
@@ -283,11 +350,24 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
     const ctx = canvas.getContext('2d');
     
     const elapsedSinceSceneStart = Date.now() - sceneStartTimeRef.current;
-    const currentScene = scenes[currentSceneIdxRef.current];
-    const sceneDuration = currentScene.duration * 1000;
+    const sceneDuration = getSceneDuration(currentSceneIdxRef.current);
+
+    let isSceneFinished = false;
+
+    // Allow at least 200ms to load the new audio asset before checking for completion
+    if (elapsedSinceSceneStart > 200) {
+      const audioEl = speechAudioRef.current;
+      if (audioEl && audioEl.src && !audioEl.paused && !isNaN(audioEl.duration)) {
+        isSceneFinished = audioEl.ended || (audioEl.currentTime >= audioEl.duration - 0.05) || (elapsedSinceSceneStart >= sceneDuration);
+      } else {
+        isSceneFinished = elapsedSinceSceneStart >= sceneDuration;
+      }
+    } else {
+      isSceneFinished = elapsedSinceSceneStart >= sceneDuration;
+    }
 
     // Check if current scene has finished
-    if (elapsedSinceSceneStart >= sceneDuration) {
+    if (isSceneFinished) {
       accumulatedTimeRef.current += sceneDuration;
       currentSceneIdxRef.current += 1;
       
@@ -305,9 +385,16 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
       }
     }
 
-    const currentSceneProgress = Math.min(elapsedSinceSceneStart / sceneDuration, 1);
-    const overallProgress = ((accumulatedTimeRef.current + elapsedSinceSceneStart) / totalDuration) * 100;
-    setProgress(overallProgress);
+    let currentSceneProgress = 0;
+    const audioEl = speechAudioRef.current;
+    if (audioEl && audioEl.src && !audioEl.paused && !isNaN(audioEl.duration) && audioEl.duration > 0) {
+      currentSceneProgress = Math.min(audioEl.currentTime / audioEl.duration, 1);
+    } else {
+      currentSceneProgress = Math.min(elapsedSinceSceneStart / sceneDuration, 1);
+    }
+
+    const overallProgress = ((accumulatedTimeRef.current + (currentSceneProgress * sceneDuration)) / totalDuration) * 100;
+    setProgress(Math.min(overallProgress, 100));
 
     // Draw frame
     drawFrame(ctx, canvas.width, canvas.height, currentSceneIdxRef.current, currentSceneProgress);
@@ -435,7 +522,7 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
       stopPlayback();
       initAudio();
       setIsCompiling(true);
-      setCompileStatus('');
+      setCompileStatus('Initializing audio tracks...');
       setCompileProgress(0);
       
       if (onCompileStart) onCompileStart();
@@ -447,6 +534,33 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
       if (audioCtx.state === 'suspended') {
         await audioCtx.resume();
       }
+
+      // Preload background music into the element
+      const genre = musicGenre || 'cinematic';
+      musicAudioRef.current.src = musicTracks[genre];
+      musicAudioRef.current.currentTime = 0;
+      
+      // Load first scene voice narration Object URL
+      speechAudioRef.current.src = audioObjectUrlsRef.current[0] || scenes[0].audioUrl;
+      speechAudioRef.current.currentTime = 0;
+
+      // Wait for speech and background music audio elements to buffer (readyState >= 2)
+      await Promise.all([
+        new Promise((resolve) => {
+          if (speechAudioRef.current.readyState >= 2) resolve();
+          else {
+            speechAudioRef.current.oncanplay = resolve;
+            setTimeout(resolve, 2000); // Safety fallback
+          }
+        }),
+        new Promise((resolve) => {
+          if (musicAudioRef.current.readyState >= 2) resolve();
+          else {
+            musicAudioRef.current.oncanplay = resolve;
+            setTimeout(resolve, 2000); // Safety fallback
+          }
+        })
+      ]);
 
       // Combine video stream (30 fps) and audio destination stream
       const videoStream = canvas.captureStream(30);
@@ -460,7 +574,7 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
       const combinedStream = new MediaStream(tracks);
       
       // Dynamically detect supported mimeType for the browser
-      let options = { videoBitsPerSecond: 4000000 };
+      let options = { videoBitsPerSecond: 2000000 }; // 2 Mbps for size optimization (fits Vercel 4.5MB limit)
       if (typeof MediaRecorder.isTypeSupported === 'function') {
         if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
           options.mimeType = 'video/webm;codecs=vp9';
@@ -493,18 +607,11 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
       let sceneStartTime = Date.now();
       let accumulatedTime = 0;
       
-      // Start media inputs
+      // Start recording media inputs
       recorder.start();
 
-      // Play background music
-      const genre = musicGenre || 'cinematic';
-      musicAudioRef.current.src = musicTracks[genre];
-      musicAudioRef.current.currentTime = 0;
+      // Start audio playback
       musicAudioRef.current.play().catch(e => console.log('Compile Audio block:', e));
-
-      // Play first voice narration and video asset
-      speechAudioRef.current.src = scenes[0].audioUrl;
-      speechAudioRef.current.currentTime = 0;
       speechAudioRef.current.play().catch(e => console.log('Compile speech block:', e));
       playSceneAsset(0);
 
@@ -514,10 +621,23 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
       const intervalMs = 1000 / 30;
       const compileTimer = setInterval(() => {
         const elapsedSinceScene = Date.now() - sceneStartTime;
-        const currentScene = scenes[currentSceneIndex];
-        const sceneDuration = currentScene.duration * 1000;
+        const sceneDuration = getSceneDuration(currentSceneIndex);
 
-        if (elapsedSinceScene >= sceneDuration) {
+        let isSceneFinished = false;
+
+        // Allow at least 200ms to load/transition to new audio source
+        if (elapsedSinceScene > 200) {
+          const audioEl = speechAudioRef.current;
+          if (audioEl && !audioEl.paused && !isNaN(audioEl.duration)) {
+            isSceneFinished = audioEl.ended || (audioEl.currentTime >= audioEl.duration - 0.05) || (elapsedSinceScene >= sceneDuration);
+          } else {
+            isSceneFinished = elapsedSinceScene >= sceneDuration;
+          }
+        } else {
+          isSceneFinished = elapsedSinceScene >= sceneDuration;
+        }
+
+        if (isSceneFinished) {
           accumulatedTime += sceneDuration;
           currentSceneIndex += 1;
 
@@ -534,18 +654,25 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
           } else {
             // Next scene
             sceneStartTime = Date.now();
-            speechAudioRef.current.src = scenes[currentSceneIndex].audioUrl;
+            speechAudioRef.current.src = audioObjectUrlsRef.current[currentSceneIndex] || scenes[currentSceneIndex].audioUrl;
             speechAudioRef.current.currentTime = 0;
             speechAudioRef.current.play().catch(e => console.log(e));
             playSceneAsset(currentSceneIndex);
           }
         }
 
-        const sceneProgress = elapsedSinceScene / sceneDuration;
-        const totalProgress = ((accumulatedTime + elapsedSinceScene) / totalDuration) * 100;
+        let sceneProgress = 0;
+        const audioEl = speechAudioRef.current;
+        if (audioEl && !audioEl.paused && !isNaN(audioEl.duration) && audioEl.duration > 0) {
+          sceneProgress = Math.min(audioEl.currentTime / audioEl.duration, 1);
+        } else {
+          sceneProgress = Math.min(elapsedSinceScene / sceneDuration, 1);
+        }
+
+        const totalProgress = ((accumulatedTime + (sceneProgress * sceneDuration)) / totalDuration) * 100;
         const progressPct = Math.floor(totalProgress);
-        setCompileProgress(progressPct);
-        if (onCompileProgress) onCompileProgress(progressPct);
+        setCompileProgress(Math.min(progressPct, 99)); // Keep at 99% until file is fully packaged
+        if (onCompileProgress) onCompileProgress(Math.min(progressPct, 99));
 
         // Draw frame to canvas
         drawFrame(ctx, canvas.width, canvas.height, currentSceneIndex, sceneProgress);
