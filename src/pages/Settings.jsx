@@ -342,6 +342,22 @@ export default function Settings({ settings, fetchSettings, isChannelConnected, 
                   <option value="28">Science & Technology</option>
                 </select>
               </div>
+
+              <button 
+                type="button"
+                onClick={handleSaveSettings}
+                className="btn btn-primary"
+                disabled={isSaving}
+                style={{ width: '100%', display: 'flex', gap: '8px', height: '42px', marginTop: '10px' }}
+              >
+                {isSaving ? (
+                  <span className="spinner"></span>
+                ) : (
+                  <>
+                    <Save size={16} /> Save Default Metadata
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
