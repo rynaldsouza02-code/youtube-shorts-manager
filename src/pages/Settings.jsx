@@ -2,13 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { Settings as SettingsIcon, Key, Youtube, HelpCircle, Save, LogOut, Link2 } from 'lucide-react';
 
 export default function Settings({ settings, fetchSettings, isChannelConnected, channelInfo, fetchChannelStatus, addToast }) {
-  const [formData, setFormData] = useState({ ...settings });
+  const [formData, setFormData] = useState({
+    estimatedRPM: 0.04,
+    estimatedCPM: 0.50,
+    ...settings
+  });
   const [isSaving, setIsSaving] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
 
   // Sync state when settings load
   useEffect(() => {
-    setFormData({ ...settings });
+    setFormData({
+      estimatedRPM: 0.04,
+      estimatedCPM: 0.50,
+      ...settings
+    });
   }, [settings]);
 
   // Check URL parameters for OAuth status redirect
@@ -370,6 +378,68 @@ export default function Settings({ settings, fetchSettings, isChannelConnected, 
                 ) : (
                   <>
                     <Save size={16} /> Save Default Metadata
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Monetization & Financial Settings */}
+          <div className="glass-panel" style={{ padding: '24px', boxShadow: 'var(--shadow-sm)' }}>
+            <h3 style={{ marginBottom: '20px', fontSize: '1.2rem', fontFamily: 'var(--font-display)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <SettingsIcon size={18} color="var(--color-success)" /> Monetization & Financial Settings
+            </h3>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label className="form-label">Estimated Shorts RPM ($ per 1,000 views)</label>
+                <input 
+                  type="number" 
+                  name="estimatedRPM"
+                  step="0.001"
+                  min="0.001"
+                  max="10.0"
+                  value={formData.estimatedRPM !== undefined ? formData.estimatedRPM : 0.04}
+                  onChange={handleChange}
+                  placeholder="e.g. 0.04"
+                  className="input-control"
+                  required
+                />
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '4px', display: 'block' }}>
+                  Shorts Revenue Per Mille (RPM) is typically between $0.01 and $0.06 per 1,000 views.
+                </span>
+              </div>
+
+              <div>
+                <label className="form-label">Estimated Ad CPM ($ per 1,000 impressions)</label>
+                <input 
+                  type="number" 
+                  name="estimatedCPM"
+                  step="0.01"
+                  min="0.01"
+                  value={formData.estimatedCPM !== undefined ? formData.estimatedCPM : 0.50}
+                  onChange={handleChange}
+                  placeholder="e.g. 0.50"
+                  className="input-control"
+                  required
+                />
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '4px', display: 'block' }}>
+                  Shorts CPM is the cost per 1,000 impressions, usually around $0.20 – $1.50.
+                </span>
+              </div>
+              
+              <button 
+                type="button"
+                onClick={handleSaveSettings}
+                className="btn btn-primary"
+                disabled={isSaving}
+                style={{ width: '100%', display: 'flex', gap: '8px', height: '42px', marginTop: '10px', backgroundColor: 'var(--color-success)' }}
+              >
+                {isSaving ? (
+                  <span className="spinner"></span>
+                ) : (
+                  <>
+                    <Save size={16} /> Save Financial Settings
                   </>
                 )}
               </button>

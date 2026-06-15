@@ -530,6 +530,7 @@ export default function App() {
             fetchUploads={fetchUploads}
             setCurrentPage={setCurrentPage}
             addToast={addToast}
+            settings={settings}
           />
         );
       case 'creator':
