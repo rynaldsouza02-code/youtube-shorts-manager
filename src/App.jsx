@@ -416,22 +416,31 @@ export default function App() {
           while (true) {
             elapsed = Date.now() - startTime;
             
-            let progress = 0;
-            if (audioUrl && !speechAudio.paused && speechAudio.duration > 0) {
-              progress = Math.min(speechAudio.currentTime / speechAudio.duration, 1);
-            } else {
-              progress = Math.min(elapsed / duration, 1);
+            const hasAudio = !!audioUrl;
+            let isAudioPlaying = false;
+            if (hasAudio) {
+              if (speechAudio.src && !speechAudio.paused && !isNaN(speechAudio.duration) && speechAudio.currentTime > 0) {
+                isAudioPlaying = true;
+              }
             }
 
-            // Check if scene is finished
+            let progress = 0;
             let isSceneFinished = false;
-            if (elapsed > 200) {
-              if (audioUrl && !speechAudio.paused) {
-                isSceneFinished = speechAudio.ended || (speechAudio.currentTime >= speechAudio.duration - 0.05) || (elapsed >= duration);
+
+            if (hasAudio) {
+              if (isAudioPlaying) {
+                progress = Math.min(speechAudio.currentTime / speechAudio.duration, 1);
+                isSceneFinished = speechAudio.ended || (speechAudio.currentTime >= speechAudio.duration - 0.05);
               } else {
-                isSceneFinished = elapsed >= duration;
+                progress = 0;
+                if (elapsed > 4000) {
+                  isSceneFinished = true;
+                } else {
+                  isSceneFinished = false;
+                }
               }
             } else {
+              progress = Math.min(elapsed / duration, 1);
               isSceneFinished = elapsed >= duration;
             }
 

@@ -372,17 +372,35 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
     const elapsedSinceSceneStart = Date.now() - sceneStartTimeRef.current;
     const sceneDuration = getSceneDuration(currentSceneIdxRef.current);
 
-    let isSceneFinished = false;
-
-    // Allow at least 200ms to load the new audio asset before checking for completion
-    if (elapsedSinceSceneStart > 200) {
+    const hasAudioTrack = !!(audioObjectUrlsRef.current[currentSceneIdxRef.current] || scenes[currentSceneIdxRef.current]?.audioUrl);
+    const hasAudio = hasAudioTrack && speechAudioRef.current;
+    
+    let isAudioPlaying = false;
+    if (hasAudio) {
       const audioEl = speechAudioRef.current;
-      if (audioEl && audioEl.src && !audioEl.paused && !isNaN(audioEl.duration)) {
-        isSceneFinished = audioEl.ended || (audioEl.currentTime >= audioEl.duration - 0.05) || (elapsedSinceSceneStart >= sceneDuration);
+      if (audioEl.src && !audioEl.paused && !isNaN(audioEl.duration) && audioEl.currentTime > 0) {
+        isAudioPlaying = true;
+      }
+    }
+
+    let isSceneFinished = false;
+    let currentSceneProgress = 0;
+
+    if (hasAudio) {
+      if (isAudioPlaying) {
+        const audioEl = speechAudioRef.current;
+        currentSceneProgress = Math.min(audioEl.currentTime / audioEl.duration, 1);
+        isSceneFinished = audioEl.ended || (audioEl.currentTime >= audioEl.duration - 0.05);
       } else {
-        isSceneFinished = elapsedSinceSceneStart >= sceneDuration;
+        currentSceneProgress = 0;
+        if (elapsedSinceSceneStart > 4000) {
+          isSceneFinished = true;
+        } else {
+          isSceneFinished = false;
+        }
       }
     } else {
+      currentSceneProgress = Math.min(elapsedSinceSceneStart / sceneDuration, 1);
       isSceneFinished = elapsedSinceSceneStart >= sceneDuration;
     }
 
@@ -403,14 +421,6 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
         playSceneAudio(currentSceneIdxRef.current);
         playSceneAsset(currentSceneIdxRef.current);
       }
-    }
-
-    let currentSceneProgress = 0;
-    const audioEl = speechAudioRef.current;
-    if (audioEl && audioEl.src && !audioEl.paused && !isNaN(audioEl.duration) && audioEl.duration > 0) {
-      currentSceneProgress = Math.min(audioEl.currentTime / audioEl.duration, 1);
-    } else {
-      currentSceneProgress = Math.min(elapsedSinceSceneStart / sceneDuration, 1);
     }
 
     const overallProgress = ((accumulatedTimeRef.current + (currentSceneProgress * sceneDuration)) / totalDuration) * 100;
@@ -494,11 +504,11 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
     );
 
     const isLandscape = aspectRatio === '16:9';
-    ctx.font = isLandscape ? '800 52px Outfit, sans-serif' : '800 64px Outfit, sans-serif';
+    ctx.font = isLandscape ? '800 42px Outfit, sans-serif' : '800 64px Outfit, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.strokeStyle = '#000000';
-    ctx.lineWidth = isLandscape ? 10 : 14;
+    ctx.lineWidth = isLandscape ? 8 : 14;
 
     // Word Wrap and Position
     const maxLineChars = isLandscape ? 30 : 18;
@@ -666,17 +676,35 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
         const elapsedSinceScene = Date.now() - sceneStartTime;
         const sceneDuration = getSceneDuration(currentSceneIndex);
 
-        let isSceneFinished = false;
+        const hasAudioTrack = !!(audioObjectUrlsRef.current[currentSceneIndex] || scenes[currentSceneIndex]?.audioUrl);
+        const hasAudio = hasAudioTrack && speechAudioRef.current;
 
-        // Allow at least 200ms to load/transition to new audio source
-        if (elapsedSinceScene > 200) {
+        let isAudioPlaying = false;
+        if (hasAudio) {
           const audioEl = speechAudioRef.current;
-          if (audioEl && !audioEl.paused && !isNaN(audioEl.duration)) {
-            isSceneFinished = audioEl.ended || (audioEl.currentTime >= audioEl.duration - 0.05) || (elapsedSinceScene >= sceneDuration);
+          if (audioEl.src && !audioEl.paused && !isNaN(audioEl.duration) && audioEl.currentTime > 0) {
+            isAudioPlaying = true;
+          }
+        }
+
+        let isSceneFinished = false;
+        let sceneProgress = 0;
+
+        if (hasAudio) {
+          if (isAudioPlaying) {
+            const audioEl = speechAudioRef.current;
+            sceneProgress = Math.min(audioEl.currentTime / audioEl.duration, 1);
+            isSceneFinished = audioEl.ended || (audioEl.currentTime >= audioEl.duration - 0.05);
           } else {
-            isSceneFinished = elapsedSinceScene >= sceneDuration;
+            sceneProgress = 0;
+            if (elapsedSinceScene > 4000) {
+              isSceneFinished = true;
+            } else {
+              isSceneFinished = false;
+            }
           }
         } else {
+          sceneProgress = Math.min(elapsedSinceScene / sceneDuration, 1);
           isSceneFinished = elapsedSinceScene >= sceneDuration;
         }
 
@@ -702,14 +730,6 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
             speechAudioRef.current.play().catch(e => console.log(e));
             playSceneAsset(currentSceneIndex);
           }
-        }
-
-        let sceneProgress = 0;
-        const audioEl = speechAudioRef.current;
-        if (audioEl && !audioEl.paused && !isNaN(audioEl.duration) && audioEl.duration > 0) {
-          sceneProgress = Math.min(audioEl.currentTime / audioEl.duration, 1);
-        } else {
-          sceneProgress = Math.min(elapsedSinceScene / sceneDuration, 1);
         }
 
         const totalProgress = ((accumulatedTime + (sceneProgress * sceneDuration)) / totalDuration) * 100;
