@@ -35,12 +35,6 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
       setCalcRPM(parseFloat(settings.estimatedRPM));
     }
   }, [settings]);
-
-  const rpm = settings?.estimatedRPM !== undefined ? parseFloat(settings.estimatedRPM) : 0.04;
-  const cpm = settings?.estimatedCPM !== undefined ? parseFloat(settings.estimatedCPM) : 0.50;
-  const totalViewsRef = isChannelConnected && channelInfo ? Math.max(parseInt(channelInfo.views || 0), totalViews) : totalViews;
-  const currentSubs = isChannelConnected && channelInfo ? parseInt(channelInfo.subscribers || 0) : 0;
-
   // Filter completed uploads
   const completedUploads = uploads.filter(u => u.status === 'completed');
   const totalUploaded = completedUploads.length;
@@ -50,6 +44,11 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
   const totalViews = completedUploads.reduce((sum, u) => sum + (parseInt(u.views) || 0), 0);
   const totalLikes = completedUploads.reduce((sum, u) => sum + (parseInt(u.likes) || 0), 0);
   const totalComments = completedUploads.reduce((sum, u) => sum + (parseInt(u.comments) || 0), 0);
+
+  const rpm = settings?.estimatedRPM !== undefined ? parseFloat(settings.estimatedRPM) : 0.04;
+  const cpm = settings?.estimatedCPM !== undefined ? parseFloat(settings.estimatedCPM) : 0.50;
+  const totalViewsRef = isChannelConnected && channelInfo ? Math.max(parseInt(channelInfo.views || 0), totalViews) : totalViews;
+  const currentSubs = isChannelConnected && channelInfo ? parseInt(channelInfo.subscribers || 0) : 0;
 
   const avgViews = totalUploaded > 0 ? Math.round(totalViews / totalUploaded) : 0;
   const avgLikes = totalUploaded > 0 ? Math.round(totalLikes / totalUploaded) : 0;
