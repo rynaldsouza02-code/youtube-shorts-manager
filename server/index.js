@@ -173,13 +173,13 @@ app.post('/api/sync', (req, res) => {
 
 // Generate AI Storyboard Script
 app.post('/api/generate/script', async (req, res) => {
-  const { prompt, style } = req.body;
+  const { prompt, style, format } = req.body;
   if (!prompt) {
     return res.status(400).json({ error: 'Prompt is required.' });
   }
 
   try {
-    const script = await generateScript(prompt, style);
+    const script = await generateScript(prompt, style, format);
     res.json(script);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -203,13 +203,13 @@ app.post('/api/generate/speech', async (req, res) => {
 
 // Search stock assets from Pexels API
 app.get('/api/search/assets', async (req, res) => {
-  const { query, type } = req.query; // type: photo or video
+  const { query, type, orientation } = req.query; // type: photo or video
   if (!query) {
     return res.status(400).json({ error: 'Search query is required.' });
   }
 
   try {
-    const assets = await searchStockAssets(query, type || 'photo');
+    const assets = await searchStockAssets(query, type || 'photo', orientation || 'portrait');
     res.json({ assets });
   } catch (error) {
     res.status(500).json({ error: error.message });

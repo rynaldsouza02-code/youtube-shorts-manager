@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, Film, CheckCircle, AlertCircle } from 'lucide-react';
 
-export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, onCompileStart, onCompileProgress }) {
+export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, onCompileStart, onCompileProgress, aspectRatio = '9:16' }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentSceneIdx, setCurrentSceneIdx] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -125,9 +125,12 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
           // Generate fallback image if visual element failed
           if (!visualEl) {
             const fallbackCanvas = document.createElement('canvas');
-            fallbackCanvas.width = 1080; fallbackCanvas.height = 1920;
+            const isLandscape = aspectRatio === '16:9';
+            fallbackCanvas.width = isLandscape ? 1920 : 1080;
+            fallbackCanvas.height = isLandscape ? 1080 : 1920;
             const fCtx = fallbackCanvas.getContext('2d');
-            fCtx.fillStyle = '#1e293b'; fCtx.fillRect(0,0,1080,1920);
+            fCtx.fillStyle = '#1e293b';
+            fCtx.fillRect(0, 0, fallbackCanvas.width, fallbackCanvas.height);
             
             const fallbackImg = new Image();
             await new Promise((resolve) => {
@@ -213,7 +216,7 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
         }
       });
     };
-  }, [scenes]);
+  }, [scenes, aspectRatio]);
 
   const drawStaticPreview = () => {
     const canvas = canvasRef.current;
@@ -222,15 +225,32 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
     const img = imageElementsRef.current[0];
     if (img) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const w = canvas.width;
+      const h = canvas.height;
+      const imgW = img.videoWidth || img.naturalWidth || img.width || w;
+      const imgH = img.videoHeight || img.naturalHeight || img.height || h;
+      const canvasRatio = w / h;
+      const imgRatio = imgW / imgH;
+      
+      let sx = 0, sy = 0, sWidth = imgW, sHeight = imgH;
+      if (imgRatio > canvasRatio) {
+        sWidth = imgH * canvasRatio;
+        sx = (imgW - sWidth) / 2;
+      } else {
+        sHeight = imgW / canvasRatio;
+        sy = (imgH - sHeight) / 2;
+      }
+      ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, w, h);
+      
       // Dark Overlay
       ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, w, h);
       // Title watermark
-      ctx.font = '800 42px Outfit, sans-serif';
+      const isLandscape = aspectRatio === '16:9';
+      ctx.font = isLandscape ? '800 36px Outfit, sans-serif' : '800 42px Outfit, sans-serif';
       ctx.fillStyle = '#ff2e55';
       ctx.textAlign = 'center';
-      ctx.fillText('AutoShorts Editor', canvas.width/2, 200);
+      ctx.fillText('AutoShorts Editor', w / 2, isLandscape ? 150 : 200);
     }
   };
 
@@ -415,13 +435,35 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
       const isReady = isVideo ? (img.readyState >= 2) : img.complete;
       
       if (isReady) {
+        // Center and cover-crop image/video to canvas aspect ratio
+        const imgW = img.videoWidth || img.naturalWidth || img.width || w;
+        const imgH = img.videoHeight || img.naturalHeight || img.height || h;
+        const canvasRatio = w / h;
+        const imgRatio = imgW / imgH;
+        
+        let sx = 0, sy = 0, sWidth = imgW, sHeight = imgH;
+        if (imgRatio > canvasRatio) {
+          // Image is wider than canvas: crop sides
+          sWidth = imgH * canvasRatio;
+          sx = (imgW - sWidth) / 2;
+        } else {
+          // Image is taller than canvas: crop top and bottom
+          sHeight = imgW / canvasRatio;
+          sy = (imgH - sHeight) / 2;
+        }
+
         // Apply zoom to photos, but keep videos standard to avoid performance lag
         const zoom = isVideo ? 1.0 : (1.0 + (progressVal * 0.12)); 
-        const drawW = w * zoom;
-        const drawH = h * zoom;
-        const drawX = (w - drawW) / 2;
-        const drawY = (h - drawH) / 2;
-        ctx.drawImage(img, drawX, drawY, drawW, drawH);
+        if (zoom !== 1.0) {
+          const newSWidth = sWidth / zoom;
+          const newSHeight = sHeight / zoom;
+          sx += (sWidth - newSWidth) / 2;
+          sy += (sHeight - newSHeight) / 2;
+          sWidth = newSWidth;
+          sHeight = newSHeight;
+        }
+
+        ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, w, h);
       } else {
         // gradient fill fallback
         const grad = ctx.createLinearGradient(0, 0, 0, h);
@@ -451,14 +493,15 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
       numWords - 1
     );
 
-    ctx.font = '800 64px Outfit, sans-serif';
+    const isLandscape = aspectRatio === '16:9';
+    ctx.font = isLandscape ? '800 52px Outfit, sans-serif' : '800 64px Outfit, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 14;
+    ctx.lineWidth = isLandscape ? 10 : 14;
 
     // Word Wrap and Position
-    const maxLineChars = 18;
+    const maxLineChars = isLandscape ? 30 : 18;
     let currentLine = '';
     const lines = [];
 
@@ -473,11 +516,11 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
     });
     lines.push({ text: currentLine.trim(), startIdx: words.length - currentLine.split(' ').filter(Boolean).length });
 
-    const yStart = 1350; // render on lower third
+    const yStart = isLandscape ? 780 : 1350; // render on lower third
     
     lines.forEach((lineObj, lIdx) => {
       const lineWords = lineObj.text.split(' ');
-      const wordY = yStart + (lIdx * 90);
+      const wordY = yStart + (lIdx * (isLandscape ? 70 : 90));
       
       // Calculate width to draw word by word
       let totalLineWidth = 0;
@@ -690,128 +733,184 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
     }
   };
 
+  const isLandscape = aspectRatio === '16:9';
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
-      {/* 9:16 Vertical Simulator view */}
-      <div className="shorts-simulator-container">
-        <div className="shorts-phone-frame">
-          {/* Physical camera notch overlay */}
-          <div style={{
-            position: 'absolute',
-            top: 0,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: '110px',
-            height: '20px',
-            background: '#1e2235',
-            borderRadius: '0 0 14px 14px',
-            zIndex: 20,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-            pointerEvents: 'none'
-          }}>
-            {/* Camera lens */}
-            <div style={{
-              width: '6px',
-              height: '6px',
-              borderRadius: '50%',
-              background: '#040508',
-              border: '1px solid #3b4260'
-            }} />
-          </div>
-
-          {/* Phone Status Bar Mockup */}
-          <div style={{
-            position: 'absolute',
-            top: '4px',
-            left: 0,
-            right: 0,
-            padding: '2px 20px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            fontSize: '0.65rem',
-            fontWeight: 700,
-            color: 'rgba(255,255,255,0.5)',
-            zIndex: 18,
-            pointerEvents: 'none',
-            fontFamily: 'var(--font-sans)'
-          }}>
-            <span>12:00</span>
-            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-              <span>5G</span>
-              <div style={{ width: '15px', height: '8px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '2px', padding: '1px', display: 'flex' }}>
-                <div style={{ width: '100%', height: '100%', background: 'rgba(255,255,255,0.5)', borderRadius: '1px' }} />
-              </div>
-            </div>
-          </div>
-
-          {/* Glossy screen glare reflection */}
-          <div style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            background: 'linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0) 45%, rgba(0,0,0,0.08) 100%)',
-            pointerEvents: 'none',
-            zIndex: 15
-          }} />
-
-          {/* Physical Home Indicator Bar */}
-          <div style={{
-            position: 'absolute',
-            bottom: '8px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: '90px',
-            height: '4px',
-            background: 'rgba(255,255,255,0.35)',
-            borderRadius: '2px',
-            zIndex: 18,
-            pointerEvents: 'none'
-          }} />
-
-          <canvas 
-            ref={canvasRef} 
-            width={1080} 
-            height={1920}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-          />
-          
-          {/* Asset loading spinner overlay */}
-          {!assetsLoaded && (
+      {isLandscape ? (
+        /* Landscape TV Simulator view */
+        <div className="landscape-simulator-container">
+          <div className="landscape-tv-frame">
+            {/* TV Screen Reflection */}
             <div style={{
               position: 'absolute',
-              inset: 0,
-              background: 'rgba(12, 14, 20, 0.95)',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 100%)',
+              pointerEvents: 'none',
+              zIndex: 15
+            }} />
+
+            <canvas 
+              ref={canvasRef} 
+              width={1920} 
+              height={1080}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            />
+            
+            {/* Asset loading spinner overlay */}
+            {!assetsLoaded && (
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                background: 'rgba(12, 14, 20, 0.95)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '12px',
+                color: 'var(--text-secondary)',
+                zIndex: 16
+              }}>
+                <div className="spinner" style={{ borderColor: 'var(--color-success)', borderTopColor: 'transparent', width: '28px', height: '28px' }}></div>
+                <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>Loading Stock Media...</span>
+              </div>
+            )}
+
+            {/* Subtitle preview container */}
+            {assetsLoaded && !isPlaying && !isCompiling && (
+              <div className="subtitle-overlay-container" style={{ bottom: '20%' }}>
+                <div className="subtitle-word-box">
+                  <span className="active" style={{ fontSize: '1.2rem' }}>Click Play To Preview</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        /* 9:16 Vertical Simulator view */
+        <div className="shorts-simulator-container">
+          <div className="shorts-phone-frame">
+            {/* Physical camera notch overlay */}
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: '110px',
+              height: '20px',
+              background: '#1e2235',
+              borderRadius: '0 0 14px 14px',
+              zIndex: 20,
               display: 'flex',
-              flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '12px',
-              color: 'var(--text-secondary)',
-              zIndex: 16
+              boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+              pointerEvents: 'none'
             }}>
-              <div className="spinner" style={{ borderColor: 'var(--color-shorts)', borderTopColor: 'transparent', width: '28px', height: '28px' }}></div>
-              <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>Loading Stock Media...</span>
+              {/* Camera lens */}
+              <div style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                background: '#040508',
+                border: '1px solid #3b4260'
+              }} />
             </div>
-          )}
- 
-          {/* Subtitle preview container */}
-          {assetsLoaded && !isPlaying && !isCompiling && (
-            <div className="subtitle-overlay-container">
-              <div className="subtitle-word-box">
-                <span className="active">Click Play To Preview</span>
+
+            {/* Phone Status Bar Mockup */}
+            <div style={{
+              position: 'absolute',
+              top: '4px',
+              left: 0,
+              right: 0,
+              padding: '2px 20px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              fontSize: '0.65rem',
+              fontWeight: 700,
+              color: 'rgba(255,255,255,0.5)',
+              zIndex: 18,
+              pointerEvents: 'none',
+              fontFamily: 'var(--font-sans)'
+            }}>
+              <span>12:00</span>
+              <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                <span>5G</span>
+                <div style={{ width: '15px', height: '8px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '2px', padding: '1px', display: 'flex' }}>
+                  <div style={{ width: '100%', height: '100%', background: 'rgba(255,255,255,0.5)', borderRadius: '1px' }} />
+                </div>
               </div>
             </div>
-          )}
+
+            {/* Glossy screen glare reflection */}
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0) 45%, rgba(0,0,0,0.08) 100%)',
+              pointerEvents: 'none',
+              zIndex: 15
+            }} />
+
+            {/* Physical Home Indicator Bar */}
+            <div style={{
+              position: 'absolute',
+              bottom: '8px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: '90px',
+              height: '4px',
+              background: 'rgba(255,255,255,0.35)',
+              borderRadius: '2px',
+              zIndex: 18,
+              pointerEvents: 'none'
+            }} />
+
+            <canvas 
+              ref={canvasRef} 
+              width={1080} 
+              height={1920}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            />
+            
+            {/* Asset loading spinner overlay */}
+            {!assetsLoaded && (
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                background: 'rgba(12, 14, 20, 0.95)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '12px',
+                color: 'var(--text-secondary)',
+                zIndex: 16
+              }}>
+                <div className="spinner" style={{ borderColor: 'var(--color-shorts)', borderTopColor: 'transparent', width: '28px', height: '28px' }}></div>
+                <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>Loading Stock Media...</span>
+              </div>
+            )}
+
+            {/* Subtitle preview container */}
+            {assetsLoaded && !isPlaying && !isCompiling && (
+              <div className="subtitle-overlay-container">
+                <div className="subtitle-word-box">
+                  <span className="active">Click Play To Preview</span>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Progress slider bar */}
-      <div style={{ width: '330px' }}>
+      <div style={{ width: isLandscape ? '560px' : '330px' }}>
         <div style={{
           width: '100%',
           height: '6px',
@@ -823,7 +922,7 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
           <div style={{
             width: `${progress}%`,
             height: '100%',
-            background: 'var(--color-shorts)',
+            background: isLandscape ? 'var(--color-success)' : 'var(--color-shorts)',
             transition: isPlaying ? 'width 0.03s linear' : 'width 0.3s ease'
           }}></div>
         </div>
@@ -834,7 +933,7 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
       </div>
 
       {/* Control Buttons */}
-      <div style={{ display: 'flex', gap: '14px', width: '330px' }}>
+      <div style={{ display: 'flex', gap: '14px', width: isLandscape ? '560px' : '330px' }}>
         <button 
           onClick={handlePlayPause} 
           className="btn btn-secondary"
@@ -865,7 +964,7 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
       {/* Compile Progress Overlay Panel */}
       {isCompiling && (
         <div style={{
-          width: '330px',
+          width: isLandscape ? '560px' : '330px',
           padding: '16px',
           borderRadius: '12px',
           background: 'rgba(18, 20, 28, 0.95)',
@@ -875,7 +974,7 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
           gap: '10px'
         }}>
           <div style={{ display: 'flex', justifySelf: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Encoding WebM Short...</span>
+            <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Encoding WebM Video...</span>
             <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-success)' }}>{compileProgress}%</span>
           </div>
           <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden' }}>
@@ -888,7 +987,7 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
       {/* Compile Finished Message */}
       {compileStatus === 'done' && (
         <div style={{
-          width: '330px',
+          width: isLandscape ? '560px' : '330px',
           padding: '12px 16px',
           borderRadius: '8px',
           background: 'rgba(16, 185, 129, 0.1)',

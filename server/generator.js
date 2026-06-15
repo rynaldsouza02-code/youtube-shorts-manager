@@ -20,17 +20,35 @@ function ensureTempDir() {
 }
 
 // Generate structured script using Gemini API
-export async function generateScript(topicPrompt, style) {
+export async function generateScript(topicPrompt, style, format = 'short') {
   const settings = getDBKey('settings');
   const apiKey = settings.geminiApiKey;
 
   if (!apiKey) {
     // Return high quality offline fallback script
     console.log('Gemini API key missing. Generating mock script.');
-    return generateMockScript(topicPrompt);
+    return format === 'long' ? generateMockScriptLong(topicPrompt) : generateMockScript(topicPrompt);
   }
 
-  const systemPrompt = `You are a viral YouTube Shorts creator. Generate a highly engaging Short script about: "${topicPrompt}" with a style tone of "${style || 'informative'}".
+  const systemPrompt = format === 'long'
+    ? `You are a viral YouTube video creator. Generate a highly engaging, detailed long-form video script about: "${topicPrompt}" with a style tone of "${style || 'informative'}".
+You must output a JSON object matching this exact schema:
+{
+  "title": "Viral YouTube Video Title",
+  "description": "An engaging, SEO-optimized description with video chapters and relevant hashtags.",
+  "tags": "comma, separated, tags, for, seo, long, form",
+  "musicGenre": "cinematic | upbeat | ambient | dark",
+  "scenes": [
+    {
+      "narratorText": "Detailed narrator voiceover text. Keep it highly engaging, flowy, and natural. Max 25 words per scene.",
+      "subtitleText": "Clean subtitle overlay text, exactly matching narratorText.",
+      "imageSearchQuery": "A specific search term for finding background stock landscape images/videos (e.g. 'deep ocean dark shark', 'neon cyberpunk city street')",
+      "duration": 8
+    }
+  ]
+}
+Generate exactly 15 scenes. Each scene must be exactly 8 seconds long, so the total duration is exactly 120 seconds (2 minutes). Do not include markdown formatting or code fences (\`\`\`), just return the raw JSON string.`
+    : `You are a viral YouTube Shorts creator. Generate a highly engaging Short script about: "${topicPrompt}" with a style tone of "${style || 'informative'}".
 You must output a JSON object matching this exact schema:
 {
   "title": "Viral Title (include hashtags like #shorts)",
@@ -82,7 +100,7 @@ Generate exactly 10 scenes. Each scene must be exactly 6 seconds long, so the to
 
   if (!textContent) {
     console.error('All Gemini models failed. Falling back to offline script. Last error:', lastError?.message);
-    return generateMockScript(topicPrompt);
+    return format === 'long' ? generateMockScriptLong(topicPrompt) : generateMockScript(topicPrompt);
   }
 
   try {
@@ -96,7 +114,7 @@ Generate exactly 10 scenes. Each scene must be exactly 6 seconds long, so the to
     return JSON.parse(textContent);
   } catch (error) {
     console.error('Failed to parse Gemini JSON output, falling back:', error.message);
-    return generateMockScript(topicPrompt);
+    return format === 'long' ? generateMockScriptLong(topicPrompt) : generateMockScript(topicPrompt);
   }
 }
 
@@ -159,7 +177,7 @@ export async function generateSpeech(text, filename) {
 }
 
 // Fetch stock assets (videos/photos) from Pexels API
-export async function searchStockAssets(query, type = 'photo') {
+export async function searchStockAssets(query, type = 'photo', orientation = 'portrait') {
   const settings = getDBKey('settings');
   const apiKey = settings.pexelsApiKey;
 
@@ -168,10 +186,10 @@ export async function searchStockAssets(query, type = 'photo') {
     return [];
   }
 
-  // Use vertical (portrait) orientation for Shorts
+  // Query landscape or portrait files based on orientation parameter
   const baseUrl = type === 'video' 
-    ? `https://api.pexels.com/videos/search?query=${encodeURIComponent(query)}&orientation=portrait&per_page=3`
-    : `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&orientation=portrait&per_page=5`;
+    ? `https://api.pexels.com/videos/search?query=${encodeURIComponent(query)}&orientation=${orientation}&per_page=3`
+    : `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&orientation=${orientation}&per_page=5`;
 
   try {
     const response = await fetch(baseUrl, {
@@ -186,8 +204,10 @@ export async function searchStockAssets(query, type = 'photo') {
     
     if (type === 'video') {
       return data.videos.map(v => {
-        // Find best portrait file quality (usually SD or HD)
-        const bestFile = v.video_files.find(f => f.width >= 540 && f.width <= 1080) || v.video_files[0];
+        // Find best file quality (landscape HD vs portrait SD/HD)
+        const bestFile = orientation === 'landscape'
+          ? (v.video_files.find(f => f.width >= 1280 && f.width <= 1920) || v.video_files[0])
+          : (v.video_files.find(f => f.width >= 540 && f.width <= 1080) || v.video_files[0]);
         return {
           id: v.id,
           type: 'video',
@@ -284,6 +304,109 @@ function generateMockScript(prompt) {
         subtitleText: "Fact 10. Subscribe now and comment below!",
         imageSearchQuery: `subscribe channel notifications smartphone click`,
         duration: 6
+      }
+    ]
+  };
+}
+
+// Mock long-form script generator
+function generateMockScriptLong(prompt) {
+  const cleanPrompt = prompt.replace(/[^\w\s]/gi, '').trim() || 'Modern Technology';
+  return {
+    title: `The Untold History of ${cleanPrompt} - A Complete Documentary! 🎥`,
+    description: `A deep-dive investigation into the evolution, secrets, and future impact of ${cleanPrompt}.\n\nTimestamps:\n0:00 Introduction\n0:30 Core Evolution\n1:00 Hidden Anomalies\n1:30 Future Projections\n\n#education #documentary #science #${cleanPrompt.toLowerCase().replace(/\s+/g, '')}`,
+    tags: `${cleanPrompt.toLowerCase()}, documentary, history, science, explanation, deep dive`,
+    musicGenre: 'cinematic',
+    scenes: [
+      {
+        narratorText: `Welcome to this deep dive into the history, secrets, and evolution of ${cleanPrompt}. We start from the early beginnings.`,
+        subtitleText: `Welcome to this deep dive into ${cleanPrompt}. We start from the beginning.`,
+        imageSearchQuery: `${cleanPrompt} history start genesis universe`,
+        duration: 8
+      },
+      {
+        narratorText: "In the initial phases, researchers struggled to grasp the core concepts of this emerging paradigm.",
+        subtitleText: "In initial phases, researchers struggled to grasp core concepts.",
+        imageSearchQuery: `scientific equation blackboard physics thinking scientist`,
+        duration: 8
+      },
+      {
+        narratorText: "Hidden anomalies and archaeological records suggest that ancient cultures observed similar patterns.",
+        subtitleText: "Hidden records suggest ancient cultures observed similar patterns.",
+        imageSearchQuery: `ancient Egyptian hieroglyphs stone temple ruins`,
+        duration: 8
+      },
+      {
+        narratorText: "By the turn of the century, industrial advancements accelerated the scale and complexity of this field.",
+        subtitleText: "Industrial advancements accelerated complexity of this field.",
+        imageSearchQuery: `industrial machinery steam gear cog outline vintage factory`,
+        duration: 8
+      },
+      {
+        narratorText: "Mathematical models show a structured geometric pattern governing the internal dynamics.",
+        subtitleText: "Mathematical models show structured geometric patterns.",
+        imageSearchQuery: `geometric vector matrix blue digital grid glow lines`,
+        duration: 8
+      },
+      {
+        narratorText: "Under high-stress laboratory environments, the substance exhibits extreme state alterations.",
+        subtitleText: "Under stress, the substance exhibits extreme state alterations.",
+        imageSearchQuery: `physics laboratory electric laser spark fusion experiment`,
+        duration: 8
+      },
+      {
+        narratorText: "Global distributions reveal that it plays a quiet but absolutely essential role in ecosystem stabilization.",
+        subtitleText: "Global distributions reveal its essential role in ecosystem stabilization.",
+        imageSearchQuery: `satellite view green planet earth space blue atmosphere`,
+        duration: 8
+      },
+      {
+        narratorText: "Critics argue that early myths still cloud our contemporary understanding of its actual impact.",
+        subtitleText: "Critics argue early myths still cloud our understanding.",
+        imageSearchQuery: `greek statue outline broken query mark fog backdrop`,
+        duration: 8
+      },
+      {
+        narratorText: "Recent technological innovations have finally unlocked the path to visualize its microstructures.",
+        subtitleText: "Recent tech has unlocked the path to visualize microstructures.",
+        imageSearchQuery: `powerful electron microscope screen displaying atom grid`,
+        duration: 8
+      },
+      {
+        narratorText: "The economic implications are massive, attracting billions in funding from global conglomerates.",
+        subtitleText: "The economic implications attract billions in global funding.",
+        imageSearchQuery: `stock exchange market bull chart graph skyscraper skyline`,
+        duration: 8
+      },
+      {
+        narratorText: "However, regulatory hurdles and ethical concerns have slowed down the public rollout.",
+        subtitleText: "However, regulatory hurdles and ethical concerns slow public rollout.",
+        imageSearchQuery: `court gavel paper scale justice scales lawyer defense`,
+        duration: 8
+      },
+      {
+        narratorText: "We interviewed leading experts who believe that the breakthroughs are just around the corner.",
+        subtitleText: "Experts believe breakthroughs are just around the corner.",
+        imageSearchQuery: `corporate meeting room board presentation interview panel`,
+        duration: 8
+      },
+      {
+        narratorText: "What remains to be seen is how this will redefine our lifestyle in the next few decades.",
+        subtitleText: "It remains to see how this redefines lifestyle in coming decades.",
+        imageSearchQuery: `smart house assistant robot helping family room futuristic`,
+        duration: 8
+      },
+      {
+        narratorText: "One thing is certain. The landscape of exploration here is permanently transformed.",
+        subtitleText: "One thing is certain. The exploration landscape is transformed.",
+        imageSearchQuery: `beautiful sunrise valley mountain peak horizon epic view`,
+        duration: 8
+      },
+      {
+        narratorText: "If you enjoyed this documentary, hit subscribe and share your thoughts in the comments section below.",
+        subtitleText: "If you enjoyed this, hit subscribe and comment below.",
+        imageSearchQuery: `widescreen display showing subscribe icon clicking cursor`,
+        duration: 8
       }
     ]
   };

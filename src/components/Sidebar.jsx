@@ -1,10 +1,11 @@
 import React from 'react';
-import { LayoutDashboard, Video, Calendar, Settings, Youtube, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { LayoutDashboard, Video, Calendar, Settings, Youtube, CheckCircle2, AlertTriangle, Tv } from 'lucide-react';
 
 export default function Sidebar({ currentPage, setCurrentPage, channelInfo, isChannelConnected }) {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'creator', label: 'Create Short', icon: Video },
+    { id: 'longCreator', label: 'Long Creator', icon: Tv },
     { id: 'scheduler', label: 'Autopilot', icon: Calendar },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
@@ -55,6 +56,10 @@ export default function Sidebar({ currentPage, setCurrentPage, channelInfo, isCh
           {menuItems.map(item => {
             const Icon = item.icon;
             const isActive = currentPage === item.id;
+            const activeColor = item.id === 'longCreator' ? 'var(--color-success)' : 'var(--color-shorts)';
+            const activeBg = item.id === 'longCreator' ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255, 46, 85, 0.08)';
+            const activeShadow = item.id === 'longCreator' ? '0 4px 12px rgba(16, 185, 129, 0.05)' : '0 4px 12px rgba(255, 46, 85, 0.05)';
+
             return (
               <button
                 key={item.id}
@@ -68,7 +73,7 @@ export default function Sidebar({ currentPage, setCurrentPage, channelInfo, isCh
                   padding: '12px 16px',
                   borderRadius: '10px',
                   border: 'none',
-                  background: isActive ? 'rgba(255, 46, 85, 0.08)' : 'transparent',
+                  background: isActive ? activeBg : 'transparent',
                   color: isActive ? '#ffffff' : 'var(--text-secondary)',
                   fontFamily: 'var(--font-sans)',
                   fontWeight: isActive ? 600 : 500,
@@ -77,14 +82,14 @@ export default function Sidebar({ currentPage, setCurrentPage, channelInfo, isCh
                   textAlign: 'left',
                   transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
                   outline: 'none',
-                  borderLeft: isActive ? '4px solid var(--color-shorts)' : '4px solid transparent',
-                  boxShadow: isActive ? '0 4px 12px rgba(255, 46, 85, 0.05)' : 'none'
+                  borderLeft: isActive ? `4px solid ${activeColor}` : '4px solid transparent',
+                  boxShadow: isActive ? activeShadow : 'none'
                 }}
                 onMouseEnter={(e) => {
                   if (!isActive) {
                     e.currentTarget.style.color = '#ffffff';
                     e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)';
-                    e.currentTarget.style.borderLeft = '4px solid rgba(255, 255, 255, 0.15)';
+                    e.currentTarget.style.borderLeft = `4px solid ${item.id === 'longCreator' ? 'var(--color-success)' : 'rgba(255, 255, 255, 0.15)'}`;
                   }
                 }}
                 onMouseLeave={(e) => {
@@ -96,7 +101,7 @@ export default function Sidebar({ currentPage, setCurrentPage, channelInfo, isCh
                 }}
               >
                 <Icon size={18} style={{
-                  color: isActive ? 'var(--color-shorts)' : 'inherit',
+                  color: isActive ? activeColor : 'inherit',
                   transition: 'color 0.3s ease',
                   flexShrink: 0
                 }} />
@@ -244,8 +249,14 @@ export default function Sidebar({ currentPage, setCurrentPage, channelInfo, isCh
               key={item.id}
               onClick={() => setCurrentPage(item.id)}
               className={`mobile-nav-btn ${isActive ? 'active' : ''}`}
+              style={isActive && item.id === 'longCreator' ? {
+                color: '#ffffff',
+                background: 'rgba(16, 185, 129, 0.08)'
+              } : {}}
             >
-              <Icon size={20} />
+              <Icon size={20} style={isActive ? {
+                color: item.id === 'longCreator' ? 'var(--color-success)' : 'var(--color-shorts)'
+              } : {}} />
               <span>{item.label}</span>
             </button>
           );

@@ -102,15 +102,24 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
       <div className="responsive-page-header">
         <div>
           <h1 className="page-title"><LayoutDashboard size={28} color="var(--color-shorts)" /> YouTube Manager</h1>
-          <p className="page-subtitle">Completely manage your Shorts content compilation, scheduled uploads, and real-time statistics.</p>
+          <p className="page-subtitle">Completely manage your Shorts and Widescreen videos content compilation, scheduled uploads, and real-time statistics.</p>
         </div>
-        <button 
-          onClick={() => setCurrentPage('creator')} 
-          className="btn btn-primary" 
-          style={{ display: 'flex', alignItems: 'center', gap: '8px', boxShadow: 'var(--shadow-glow)' }}
-        >
-          <Plus size={18} /> Create New Short
-        </button>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button 
+            onClick={() => setCurrentPage('creator')} 
+            className="btn btn-secondary" 
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid rgba(255, 46, 85, 0.4)', color: 'var(--color-shorts)' }}
+          >
+            <Plus size={18} /> Create Short
+          </button>
+          <button 
+            onClick={() => setCurrentPage('longCreator')} 
+            className="btn btn-primary" 
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, var(--color-success) 0%, var(--color-cyan) 100%)', boxShadow: '0 4px 14px rgba(16, 185, 129, 0.3)' }}
+          >
+            <Plus size={18} /> Create Long Video
+          </button>
+        </div>
       </div>
 
       {/* Grid: Analytics cards */}

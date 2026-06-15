@@ -3,6 +3,7 @@ import { Youtube } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
 import Creator from './pages/Creator';
+import LongCreator from './pages/LongCreator';
 import Scheduler from './pages/Scheduler';
 import Settings from './pages/Settings';
 
@@ -536,6 +537,16 @@ export default function App() {
       case 'creator':
         return (
           <Creator 
+            isChannelConnected={isChannelConnected}
+            settings={settings}
+            addToast={addToast}
+            fetchUploads={fetchUploads}
+            setCurrentPage={setCurrentPage}
+          />
+        );
+      case 'longCreator':
+        return (
+          <LongCreator 
             isChannelConnected={isChannelConnected}
             settings={settings}
             addToast={addToast}
