@@ -3,8 +3,8 @@ import { Settings as SettingsIcon, Key, Youtube, HelpCircle, Save, LogOut, Link2
 
 export default function Settings({ settings, fetchSettings, isChannelConnected, channelInfo, fetchChannelStatus, addToast }) {
   const [formData, setFormData] = useState({
-    estimatedRPM: 0.04,
-    estimatedCPM: 0.50,
+    estimatedRPM: 3.0,
+    estimatedCPM: 40.0,
     ...settings
   });
   const [isSaving, setIsSaving] = useState(false);
@@ -13,8 +13,8 @@ export default function Settings({ settings, fetchSettings, isChannelConnected, 
   // Sync state when settings load
   useEffect(() => {
     setFormData({
-      estimatedRPM: 0.04,
-      estimatedCPM: 0.50,
+      estimatedRPM: 3.0,
+      estimatedCPM: 40.0,
       ...settings
     });
   }, [settings]);
@@ -392,39 +392,39 @@ export default function Settings({ settings, fetchSettings, isChannelConnected, 
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
-                <label className="form-label">Estimated Shorts RPM ($ per 1,000 views)</label>
+                <label className="form-label">Estimated Shorts RPM (₹ per 1,000 views)</label>
                 <input 
                   type="number" 
                   name="estimatedRPM"
-                  step="0.001"
-                  min="0.001"
-                  max="10.0"
-                  value={formData.estimatedRPM !== undefined ? formData.estimatedRPM : 0.04}
+                  step="0.01"
+                  min="0.01"
+                  max="100.0"
+                  value={formData.estimatedRPM !== undefined ? formData.estimatedRPM : 3.0}
                   onChange={handleChange}
-                  placeholder="e.g. 0.04"
+                  placeholder="e.g. 3.00"
                   className="input-control"
                   required
                 />
                 <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '4px', display: 'block' }}>
-                  Shorts Revenue Per Mille (RPM) is typically between $0.01 and $0.06 per 1,000 views.
+                  Shorts Revenue Per Mille (RPM) in India is typically between ₹0.80 and ₹5.00 per 1,000 views.
                 </span>
               </div>
 
               <div>
-                <label className="form-label">Estimated Ad CPM ($ per 1,000 impressions)</label>
+                <label className="form-label">Estimated Ad CPM (₹ per 1,000 impressions)</label>
                 <input 
                   type="number" 
                   name="estimatedCPM"
-                  step="0.01"
-                  min="0.01"
-                  value={formData.estimatedCPM !== undefined ? formData.estimatedCPM : 0.50}
+                  step="0.1"
+                  min="0.1"
+                  value={formData.estimatedCPM !== undefined ? formData.estimatedCPM : 40.0}
                   onChange={handleChange}
-                  placeholder="e.g. 0.50"
+                  placeholder="e.g. 40.00"
                   className="input-control"
                   required
                 />
                 <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '4px', display: 'block' }}>
-                  Shorts CPM is the cost per 1,000 impressions, usually around $0.20 – $1.50.
+                  Shorts CPM is the cost per 1,000 impressions, usually around ₹15.00 – ₹120.00.
                 </span>
               </div>
               

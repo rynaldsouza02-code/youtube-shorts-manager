@@ -27,8 +27,8 @@ function initDB() {
         defaultDescription: 'Created automatically using AutoShorts Manager!\n#shorts #ai #viral',
         defaultTags: 'shorts, ai, automated',
         defaultCategory: '22', // People & Blogs
-        estimatedRPM: 0.04, // Default Shorts RPM is 4 cents per 1000 views
-        estimatedCPM: 0.50, // Default CPM is 50 cents per 1000 impressions
+        estimatedRPM: 3.0, // Default Shorts RPM is 3 Rupees per 1000 views
+        estimatedCPM: 40.0, // Default CPM is 40 Rupees per 1000 impressions
         autopilot: {
           enabled: false,
           niche: 'fun facts',

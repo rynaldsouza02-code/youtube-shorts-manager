@@ -27,7 +27,7 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
   const [activeTab, setActiveTab] = useState('videos'); // 'videos' or 'analytics'
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [calcViews, setCalcViews] = useState(500000); // default 500k views
-  const [calcRPM, setCalcRPM] = useState(0.04);
+  const [calcRPM, setCalcRPM] = useState(3.0);
 
   // Sync calcRPM when settings load
   useEffect(() => {
@@ -593,10 +593,10 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
                 <DollarSign size={20} color="var(--color-success)" />
               </div>
               <h2 style={{ fontSize: '2.4rem', fontWeight: 800, fontFamily: 'var(--font-display)', background: 'linear-gradient(135deg, #fff 60%, var(--color-success) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                ${(totalViewsRef * (rpm / 1000)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ₹{(totalViewsRef * (rpm / 1000)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </h2>
               <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '8px', fontWeight: 500 }}>
-                Based on {totalViewsRef.toLocaleString()} total views & ${rpm.toFixed(3)} RPM
+                Based on {totalViewsRef.toLocaleString()} total views & ₹{rpm.toFixed(2)} RPM
               </p>
             </div>
 
@@ -607,7 +607,7 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
                 <TrendingUp size={20} color="var(--color-accent)" />
               </div>
               <h2 style={{ fontSize: '2.4rem', fontWeight: 800, fontFamily: 'var(--font-display)', background: 'linear-gradient(135deg, #fff 60%, var(--color-accent) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                ${(totalUploaded > 0 ? (totalViews * (rpm / 1000)) / totalUploaded : 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ₹{(totalUploaded > 0 ? (totalViews * (rpm / 1000)) / totalUploaded : 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </h2>
               <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '8px', fontWeight: 500 }}>
                 Calculated across {totalUploaded} managed Shorts
@@ -621,7 +621,7 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
                 <Gauge size={20} color="var(--color-shorts)" />
               </div>
               <h2 style={{ fontSize: '2.4rem', fontWeight: 800, fontFamily: 'var(--font-display)', background: 'linear-gradient(135deg, #fff 60%, var(--color-shorts) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                ${rpm.toFixed(3)}
+                ₹{rpm.toFixed(2)}
               </h2>
               <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '8px', fontWeight: 500 }}>
                 Revenue per 1,000 views (set in settings)
@@ -794,16 +794,16 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
                 {/* RPM Slider */}
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 500 }}>Estimated RPM ($)</span>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 500 }}>Estimated RPM (₹)</span>
                     <strong style={{ fontSize: '0.95rem', color: 'var(--color-shorts)' }}>
-                      ${calcRPM.toFixed(3)}
+                      ₹{calcRPM.toFixed(2)}
                     </strong>
                   </div>
                   <input 
                     type="range"
-                    min="0.01"
-                    max="0.20"
-                    step="0.005"
+                    min="0.50"
+                    max="15.00"
+                    step="0.10"
                     value={calcRPM}
                     onChange={(e) => setCalcRPM(parseFloat(e.target.value))}
                     style={{
@@ -816,10 +816,10 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
                     }}
                   />
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                    <span>$0.01</span>
-                    <span>$0.05</span>
-                    <span>$0.10</span>
-                    <span>$0.20</span>
+                    <span>₹0.50</span>
+                    <span>₹5.00</span>
+                    <span>₹10.00</span>
+                    <span>₹15.00</span>
                   </div>
                 </div>
 
@@ -846,7 +846,7 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
                       color: '#fff',
                       textShadow: '0 0 15px rgba(6, 182, 212, 0.4)'
                     }}>
-                      ${((calcViews * calcRPM) / 1000).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      ₹{((calcViews * calcRPM) / 1000).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
                 </div>
@@ -870,7 +870,7 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>High CPM Niche</span>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-success)' }}>$0.08 – $0.15</span>
+                    <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-success)' }}>₹6.00 – ₹12.00</span>
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>RPM Range</span>
                   </div>
                 </div>
@@ -881,7 +881,7 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>High CPM Niche</span>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-success)' }}>$0.06 – $0.12</span>
+                    <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-success)' }}>₹5.00 – ₹10.00</span>
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>RPM Range</span>
                   </div>
                 </div>
@@ -892,7 +892,7 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Standard CPM Niche</span>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-cyan)' }}>$0.04 – $0.08</span>
+                    <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-cyan)' }}>₹3.00 – ₹6.00</span>
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>RPM Range</span>
                   </div>
                 </div>
@@ -903,7 +903,7 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Low CPM Niche</span>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-shorts)' }}>$0.01 – $0.03</span>
+                    <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-shorts)' }}>₹0.80 – ₹2.50</span>
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>RPM Range</span>
                   </div>
                 </div>
@@ -950,10 +950,10 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
                             {viewsVal.toLocaleString()}
                           </td>
                           <td style={{ padding: '16px', color: 'var(--text-secondary)' }}>
-                            ${rpm.toFixed(3)}
+                            ₹{rpm.toFixed(2)}
                           </td>
                           <td style={{ padding: '16px', textAlign: 'right', fontWeight: 700, color: 'var(--color-success)' }}>
-                            ${earnings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            ₹{earnings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </td>
                         </tr>
                       );
