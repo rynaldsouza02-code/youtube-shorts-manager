@@ -520,7 +520,7 @@ app.get('*', (req, res) => {
 // Start Server
 app.listen(PORT, () => {
   console.log(`\n======================================================`);
-  console.log(`AutoShorts Express Server Running at: http://localhost:${PORT}`);
+  console.log(`YouTube Manager Express Server Running at: http://localhost:${PORT}`);
   console.log(`Vite Client Dev Server Available at: http://localhost:5173`);
   console.log(`======================================================\n`);
 });

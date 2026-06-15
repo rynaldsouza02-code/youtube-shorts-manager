@@ -24,7 +24,7 @@ function initDB() {
         youtubeClientSecret: '',
         pexelsApiKey: '',
         geminiApiKey: '',
-        defaultDescription: 'Created automatically using AutoShorts Manager!\n#shorts #ai #viral',
+        defaultDescription: 'Created automatically using YouTube Manager!\n#shorts #ai #viral',
         defaultTags: 'shorts, ai, automated',
         defaultCategory: '22', // People & Blogs
         estimatedRPM: 3.0, // Default Shorts RPM is 3 Rupees per 1000 views

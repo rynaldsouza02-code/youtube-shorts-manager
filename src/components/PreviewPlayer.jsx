@@ -250,7 +250,7 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
       ctx.font = isLandscape ? '800 36px Outfit, sans-serif' : '800 42px Outfit, sans-serif';
       ctx.fillStyle = '#ff2e55';
       ctx.textAlign = 'center';
-      ctx.fillText('AutoShorts Editor', w / 2, isLandscape ? 150 : 200);
+      ctx.fillText('YouTube Manager', w / 2, isLandscape ? 150 : 200);
     }
   };
 

@@ -124,7 +124,7 @@ export async function uploadShortVideo(filePath, metadata) {
       requestBody: {
         snippet: {
           title: title,
-          description: metadata.description || 'Uploaded via AutoShorts Manager!',
+          description: metadata.description || 'Uploaded via YouTube Manager!',
           tags: metadata.tags ? metadata.tags.split(',').map(t => t.trim()) : ['shorts', 'ai'],
           categoryId: metadata.categoryId || '22', // default People & Blogs
           defaultLanguage: 'en'

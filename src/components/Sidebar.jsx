@@ -47,7 +47,7 @@ export default function Sidebar({ currentPage, setCurrentPage, channelInfo, isCh
             WebkitTextFillColor: 'transparent',
             textShadow: '0 0 30px rgba(255, 46, 85, 0.2)'
           }}>
-            AutoShorts
+            YouTube Manager
           </span>
         </div>
 
@@ -208,7 +208,7 @@ export default function Sidebar({ currentPage, setCurrentPage, channelInfo, isCh
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent'
           }}>
-            AutoShorts
+            YouTube Manager
           </span>
         </div>
 
