@@ -23,6 +23,7 @@ import {
   addUploadRecord, 
   updateUploadStatus 
 } from './db.js';
+import { sendUploadNotification, sendTestEmail } from './email.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -72,7 +73,7 @@ cleanTempDirectory();
 // Initiate YouTube Authentication
 app.get('/auth/youtube', (req, res) => {
   try {
-    const url = getAuthUrl();
+    const url = getAuthUrl(req);
     res.json({ url });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -82,8 +83,8 @@ app.get('/auth/youtube', (req, res) => {
 // OAuth Callback redirect handler
 app.get('/auth/youtube/callback', async (req, res) => {
   const code = req.query.code;
-  const redirectUri = process.env.REDIRECT_URI || 'http://localhost:3001/auth/youtube/callback';
-  const isLocalDev = redirectUri.includes('localhost');
+  const host = req.headers.host || '';
+  const isLocalDev = host.includes('localhost') || host.includes('127.0.0.1');
   const redirectUrlBase = isLocalDev ? 'http://localhost:5173' : '';
 
   if (!code) {
@@ -91,7 +92,7 @@ app.get('/auth/youtube/callback', async (req, res) => {
   }
 
   try {
-    await saveAuthTokens(code);
+    await saveAuthTokens(code, req);
     console.log('YouTube OAuth connection successful!');
     // Redirect user back to settings page on frontend
     res.redirect(`${redirectUrlBase}/settings?auth=success`);
@@ -104,7 +105,7 @@ app.get('/auth/youtube/callback', async (req, res) => {
 // Check channel link state and fetch statistics
 app.get('/api/youtube/channel', async (req, res) => {
   try {
-    const channel = await getChannelDetails();
+    const channel = await getChannelDetails(req);
     res.json({ connected: true, channel });
   } catch (error) {
     res.json({ connected: false, reason: error.message });
@@ -188,13 +189,13 @@ app.post('/api/generate/script', async (req, res) => {
 
 // Generate and Cache voiceover audio (TTS)
 app.post('/api/generate/speech', async (req, res) => {
-  const { text, filename } = req.body;
+  const { text, filename, style } = req.body;
   if (!text || !filename) {
     return res.status(400).json({ error: 'Text and filename are required.' });
   }
 
   try {
-    const audioUrl = await generateSpeech(text, filename);
+    const audioUrl = await generateSpeech(text, filename, style);
     res.json({ audioUrl });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -239,13 +240,28 @@ app.post('/api/settings', (req, res) => {
   }
 });
 
+// Test SMTP Mail configuration
+app.post('/api/settings/test-email', async (req, res) => {
+  const tempSettings = req.body;
+  if (!tempSettings) {
+    return res.status(400).json({ error: 'Config parameters are required.' });
+  }
+
+  try {
+    const result = await sendTestEmail(tempSettings);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Fetch upload history (combining local database queue and real uploaded videos with live stats)
 app.get('/api/uploads', async (req, res) => {
   let localUploads = getDBKey('uploads') || [];
 
   try {
     // Attempt to fetch latest uploaded videos directly from YouTube Data API
-    const youtubeVideos = await getLatestVideos().catch((e) => {
+    const youtubeVideos = await getLatestVideos(req).catch((e) => {
       console.warn('Unable to query latest uploads from YouTube API:', e.message);
       return [];
     });
@@ -264,6 +280,7 @@ app.get('/api/uploads', async (req, res) => {
           const ytItem = ytVideosMap[localItem.videoId];
           localVideoIds.add(localItem.videoId);
           mergedList.push({
+            format: localItem.format || ytItem.format || 'short',
             ...localItem,
             views: ytItem.views,
             likes: ytItem.likes,
@@ -276,6 +293,7 @@ app.get('/api/uploads', async (req, res) => {
             localVideoIds.add(localItem.videoId);
           }
           mergedList.push({
+            format: localItem.format || 'short',
             ...localItem,
             views: localItem.views || 0
           });
@@ -295,6 +313,7 @@ app.get('/api/uploads', async (req, res) => {
             views: ytItem.views,
             likes: ytItem.likes,
             comments: ytItem.comments,
+            format: ytItem.format || 'short',
             isExternal: true
           });
         }
@@ -329,6 +348,7 @@ app.post('/api/upload-video', async (req, res) => {
   const videoTags = safeDecode(req.headers['x-video-tags']);
   const videoCategory = req.headers['x-video-category'] || '22';
   const scheduleTime = req.headers['x-schedule-time'] || null; // ISO Date String
+  const videoFormat = req.headers['x-video-format'] || 'short';
 
   if (!req.body || req.body.length === 0) {
     return res.status(400).json({ error: 'Video binary body is empty.' });
@@ -346,7 +366,8 @@ app.post('/api/upload-video', async (req, res) => {
       description: videoDesc,
       tags: videoTags,
       scheduledAt: scheduleTime,
-      status: 'processing'
+      status: 'processing',
+      format: videoFormat
     });
 
     if (scheduleTime) {
@@ -357,14 +378,23 @@ app.post('/api/upload-video', async (req, res) => {
         tags: videoTags,
         categoryId: videoCategory,
         privacyStatus: 'private',
-        publishAt: scheduleTime
-      });
+        publishAt: scheduleTime,
+        format: videoFormat
+      }, req);
 
       updateUploadStatus(record.id, {
         status: 'scheduled',
         videoId: uploadResult.videoId,
         youtubeUrl: uploadResult.youtubeUrl
       });
+
+      // Send scheduled upload email notification
+      sendUploadNotification('scheduled', {
+        title: videoTitle,
+        format: videoFormat,
+        scheduledAt: scheduleTime,
+        youtubeUrl: uploadResult.youtubeUrl
+      }).catch(e => console.error('[Mail Autopilot Log] Failed to send scheduled email:', e.message));
 
       res.json({ success: true, record: { ...record, status: 'scheduled', ...uploadResult } });
     } else {
@@ -374,8 +404,9 @@ app.post('/api/upload-video', async (req, res) => {
         description: videoDesc,
         tags: videoTags,
         categoryId: videoCategory,
-        privacyStatus: 'public'
-      });
+        privacyStatus: 'public',
+        format: videoFormat
+      }, req);
 
       updateUploadStatus(record.id, {
         status: 'completed',
@@ -383,10 +414,25 @@ app.post('/api/upload-video', async (req, res) => {
         youtubeUrl: uploadResult.youtubeUrl
       });
 
+      // Send completed upload email notification
+      sendUploadNotification('completed', {
+        title: videoTitle,
+        format: videoFormat,
+        tags: videoTags,
+        youtubeUrl: uploadResult.youtubeUrl
+      }).catch(e => console.error('[Mail Autopilot Log] Failed to send completed email:', e.message));
+
       res.json({ success: true, record: { ...record, status: 'completed', ...uploadResult } });
     }
   } catch (error) {
     console.error('Video process/upload error:', error.message);
+    
+    // Send upload failure email notification
+    sendUploadNotification('failed', {
+      title: videoTitle,
+      format: videoFormat
+    }, error.message).catch(e => console.error('[Mail Autopilot Log] Failed to send failure email:', e.message));
+
     res.status(500).json({ error: error.message });
   } finally {
     // Delete temp file after uploads finish
@@ -409,29 +455,53 @@ app.delete('/api/uploads/:id', (req, res) => {
   res.json({ success: true });
 });
 
+// Fetch SMTP email accountability logs
+app.get('/api/email-logs', (req, res) => {
+  try {
+    const emailLogs = getDBKey('emailLogs') || [];
+    res.json(emailLogs);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Purge all SMTP email logs
+app.delete('/api/email-logs', (req, res) => {
+  try {
+    updateDBKey('emailLogs', []);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ================= BACKGROUND AUTOPILOT WORKER =================
 
-let autopilotRunning = false;
+let autopilotShortRunning = false;
+let autopilotLongRunning = false;
 
 // Trigger an automatic generation check
-// Trigger an automatic generation check
-async function runAutopilotCheck(force = false) {
-  if (autopilotRunning) return { success: false, reason: 'Autopilot already running' };
+async function runAutopilotCheck(format = 'short', force = false) {
+  const isLong = format === 'long';
+  const runningVar = isLong ? autopilotLongRunning : autopilotShortRunning;
+  
+  if (runningVar) return { success: false, reason: `Autopilot ${format} already running` };
   
   const db = readDB();
   const settings = db.settings;
+  const configKey = isLong ? 'autopilotLong' : 'autopilotShort';
   
-  if (!settings || !settings.autopilot || (!settings.autopilot.enabled && !force)) {
-    return { success: false, reason: 'Autopilot disabled' };
+  if (!settings || !settings[configKey] || (!settings[configKey].enabled && !force)) {
+    return { success: false, reason: `Autopilot ${format} disabled` };
   }
   
   const tokens = db.tokens;
   if (!tokens) {
-    console.log('[Autopilot] Skipped: YouTube channel not authenticated.');
+    console.log(`[Autopilot ${format}] Skipped: YouTube channel not authenticated.`);
     return { success: false, reason: 'YouTube channel not authenticated' };
   }
 
-  const autopilot = settings.autopilot;
+  const autopilot = settings[configKey];
   const now = new Date();
   
   // Parse target schedule time (e.g. "12:00")
@@ -443,12 +513,17 @@ async function runAutopilotCheck(force = false) {
   const isPastTargetTime = now.getHours() > targetHour || (now.getHours() === targetHour && now.getMinutes() >= targetMin);
 
   if (force || (isDifferentDay && isPastTargetTime)) {
-    autopilotRunning = true;
-    console.log('[Autopilot] Triggered generation. Niche:', autopilot.niche);
+    if (isLong) autopilotLongRunning = true;
+    else autopilotShortRunning = true;
+    
+    console.log(`[Autopilot ${format}] Triggered generation. Niche:`, autopilot.niche);
     
     try {
       // 1. Generate script based on configured niche
-      const script = await generateScript(`Generate an interesting fact video about: ${autopilot.niche}`);
+      const promptPrefix = isLong 
+        ? `Generate an interesting widescreen documentary about: ${autopilot.niche}` 
+        : `Generate an interesting fact video about: ${autopilot.niche}`;
+      const script = await generateScript(promptPrefix, 'informative', format);
       
       // 2. Add as a pending compilation upload in history
       const record = addUploadRecord({
@@ -456,21 +531,23 @@ async function runAutopilotCheck(force = false) {
         description: script.description,
         tags: script.tags,
         status: 'pending_compile', // Dashboard front-end detects and executes compile+upload in browser
+        format: format,
         scriptData: script
       });
       
-      console.log(`[Autopilot] Added script to compilation queue: "${script.title}". It will compile automatically on next dashboard view.`);
+      console.log(`[Autopilot ${format}] Added script to compilation queue: "${script.title}". It will compile automatically on next dashboard view.`);
       
       // Update last run time to prevent infinite loops
       autopilot.lastRun = now.toISOString();
-      settings.autopilot = autopilot;
+      settings[configKey] = autopilot;
       updateDBKey('settings', settings);
       return { success: true, record };
     } catch (err) {
-      console.error('[Autopilot] Execution error:', err.message);
+      console.error(`[Autopilot ${format}] Execution error:`, err.message);
       throw err;
     } finally {
-      autopilotRunning = false;
+      if (isLong) autopilotLongRunning = false;
+      else autopilotShortRunning = false;
     }
   } else {
     return { success: false, reason: 'Not time yet today' };
@@ -479,13 +556,15 @@ async function runAutopilotCheck(force = false) {
 
 // Run autopilot check every 60 seconds
 setInterval(() => {
-  runAutopilotCheck().catch((err) => console.error('[Autopilot background check error]:', err.message));
+  runAutopilotCheck('short').catch((err) => console.error('[Autopilot Short background check error]:', err.message));
+  runAutopilotCheck('long').catch((err) => console.error('[Autopilot Long background check error]:', err.message));
 }, 60 * 1000);
 
 // API to trigger autopilot manually
 app.post('/api/autopilot/trigger', async (req, res) => {
+  const { format } = req.body || {};
   try {
-    const result = await runAutopilotCheck(true);
+    const result = await runAutopilotCheck(format || 'short', true);
     res.json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -494,14 +573,16 @@ app.post('/api/autopilot/trigger', async (req, res) => {
 
 // API to reset autopilot lastRun status
 app.post('/api/autopilot/reset', (req, res) => {
+  const { format } = req.body || {};
   try {
     const db = readDB();
-    if (db.settings && db.settings.autopilot) {
-      db.settings.autopilot.lastRun = null;
+    const configKey = format === 'long' ? 'autopilotLong' : 'autopilotShort';
+    if (db.settings && db.settings[configKey]) {
+      db.settings[configKey].lastRun = null;
       writeDB(db);
       res.json({ success: true });
     } else {
-      res.status(400).json({ error: 'Autopilot settings not found' });
+      res.status(400).json({ error: `Autopilot ${format} settings not found` });
     }
   } catch (error) {
     res.status(500).json({ error: error.message });

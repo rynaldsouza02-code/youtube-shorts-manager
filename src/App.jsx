@@ -6,6 +6,7 @@ import Creator from './pages/Creator';
 import LongCreator from './pages/LongCreator';
 import Scheduler from './pages/Scheduler';
 import Settings from './pages/Settings';
+import EmailLogs from './pages/EmailLogs';
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState('dashboard');
@@ -409,12 +410,12 @@ export default function App() {
             speechAudio.play().catch(() => console.log('Audio autoplay blocked in headless'));
           }
           
-          let startTime = Date.now();
-          let elapsed = 0;
+          let startTime = null;
+          let bufferStartTime = Date.now();
 
           // Draw loop for this scene duration, driven by audio currentTime playhead
           while (true) {
-            elapsed = Date.now() - startTime;
+            const elapsedSinceBuffer = Date.now() - bufferStartTime;
             
             const hasAudio = !!audioUrl;
             let isAudioPlaying = false;
@@ -429,19 +430,26 @@ export default function App() {
 
             if (hasAudio) {
               if (isAudioPlaying) {
+                if (!startTime) {
+                  startTime = Date.now();
+                }
                 progress = Math.min(speechAudio.currentTime / speechAudio.duration, 1);
                 isSceneFinished = speechAudio.ended || (speechAudio.currentTime >= speechAudio.duration - 0.05);
               } else {
                 progress = 0;
-                if (elapsed > 4000) {
+                if (elapsedSinceBuffer > 3500) {
                   isSceneFinished = true;
                 } else {
                   isSceneFinished = false;
                 }
               }
             } else {
-              progress = Math.min(elapsed / duration, 1);
-              isSceneFinished = elapsed >= duration;
+              if (!startTime) {
+                startTime = Date.now();
+              }
+              const elapsedFromStart = Date.now() - startTime;
+              progress = Math.min(elapsedFromStart / duration, 1);
+              isSceneFinished = elapsedFromStart >= duration;
             }
 
             ctx.clearRect(0, 0, 1080, 1920);
@@ -584,6 +592,12 @@ export default function App() {
             addToast={addToast}
           />
         );
+      case 'emailLogs':
+        return (
+          <EmailLogs 
+            addToast={addToast}
+          />
+        );
       default:
         return <Dashboard />;
     }
@@ -591,6 +605,12 @@ export default function App() {
 
   return (
     <div className="app-container">
+      {/* Animated Flowing Aurora Background */}
+      <div className="aurora-bg">
+        <div className="aurora-blob aurora-blob-1"></div>
+        <div className="aurora-blob aurora-blob-2"></div>
+        <div className="aurora-blob aurora-blob-3"></div>
+      </div>
       {/* Sidebar Panel */}
       <Sidebar 
         currentPage={currentPage} 

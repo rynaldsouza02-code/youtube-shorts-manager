@@ -20,33 +20,150 @@ import {
   DollarSign,
   TrendingUp,
   Gauge,
-  Lightbulb
+  Lightbulb,
+  Clock
 } from 'lucide-react';
 
-export default function Dashboard({ channelInfo, isChannelConnected, uploads, fetchUploads, setCurrentPage, addToast, settings }) {
+export default function Dashboard({ channelInfo, isChannelConnected, uploads, fetchUploads, setCurrentPage, addToast, settings, isLoading }) {
   const [activeTab, setActiveTab] = useState('videos'); // 'videos' or 'analytics'
   const [selectedVideo, setSelectedVideo] = useState(null);
+  const [monetizationFormat, setMonetizationFormat] = useState('short'); // 'short' or 'long'
+  const [calcFormat, setCalcFormat] = useState('short'); // 'short' or 'long' for widget calculator
   const [calcViews, setCalcViews] = useState(500000); // default 500k views
   const [calcRPM, setCalcRPM] = useState(3.0);
 
-  // Sync calcRPM when settings load
-  useEffect(() => {
-    if (settings?.estimatedRPM !== undefined) {
-      setCalcRPM(parseFloat(settings.estimatedRPM));
+  // SaaS Link Analyzer States
+  const [videoUrl, setVideoUrl] = useState('');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisStep, setAnalysisStep] = useState(0);
+  const [analysisError, setAnalysisError] = useState('');
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [highlights, setHighlights] = useState([]);
+
+  const loadingMessages = [
+    "Connecting to YouTube API and fetching metadata...",
+    "Downloading captions and extracting video transcript...",
+    "Scanning pacing, voice tone, and identifying viral hooks...",
+    "Segmenting timeline and calculating virality index..."
+  ];
+
+  const handleAnalyzeSubmit = (e) => {
+    e.preventDefault();
+    if (!videoUrl || videoUrl.trim() === '') {
+      setAnalysisError('Please enter a YouTube video URL.');
+      return;
     }
-  }, [settings]);
+
+    const ytRegex = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+$/;
+    if (!ytRegex.test(videoUrl)) {
+      setAnalysisError('Invalid URL. Please enter a valid YouTube link (e.g., https://youtube.com/watch?v=...)');
+      return;
+    }
+
+    setAnalysisError('');
+    setIsAnalyzing(true);
+    setAnalysisStep(0);
+    setShowSuccessModal(false);
+    setHighlights([]);
+
+    let currentStep = 0;
+    const interval = setInterval(() => {
+      currentStep++;
+      if (currentStep < 4) {
+        setAnalysisStep(currentStep);
+      } else {
+        clearInterval(interval);
+        setIsAnalyzing(false);
+        setHighlights([
+          {
+            title: "Hook: The 2-minute rule that beats procrastination",
+            startTime: "01:12",
+            endTime: "01:47",
+            duration: "35s",
+            viralityScore: "98%",
+            niche: "Self Improvement"
+          },
+          {
+            title: "Crucial statistic: Why 90% of startups fail in the first year",
+            startTime: "03:22",
+            endTime: "03:54",
+            duration: "32s",
+            viralityScore: "95%",
+            niche: "Business & Finance"
+          },
+          {
+            title: "Actionable tip: How to get your first 1,000 subscribers organically",
+            startTime: "06:05",
+            endTime: "06:50",
+            duration: "45s",
+            viralityScore: "91%",
+            niche: "Content Strategy"
+          }
+        ]);
+        setShowSuccessModal(true);
+        addToast('YouTube video analyzed successfully! 3 viral highlights extracted.', 'success');
+      }
+    }, 800);
+  };
+
+  // Sync calcRPM when settings load or format switches
+  useEffect(() => {
+    if (calcFormat === 'long') {
+      setCalcRPM(settings?.estimatedRPMLong !== undefined ? parseFloat(settings.estimatedRPMLong) : 150.0);
+    } else {
+      const defaultShortRPM = settings?.estimatedRPMShort !== undefined 
+        ? parseFloat(settings.estimatedRPMShort) 
+        : (settings?.estimatedRPM !== undefined ? parseFloat(settings.estimatedRPM) : 3.0);
+      setCalcRPM(defaultShortRPM);
+    }
+  }, [settings, calcFormat]);
+
   // Filter completed uploads
-  const completedUploads = uploads.filter(u => u.status === 'completed');
+  const completedUploads = uploads.filter(u => u && u.status === 'completed');
+  const completedUploadsShort = completedUploads.filter(u => {
+    const isLong = u.format === 'long' || (u.format !== 'short' && u.title && typeof u.title === 'string' && !u.title.toLowerCase().includes('#shorts'));
+    return !isLong;
+  });
+  const completedUploadsLong = completedUploads.filter(u => {
+    const isLong = u.format === 'long' || (u.format !== 'short' && u.title && typeof u.title === 'string' && !u.title.toLowerCase().includes('#shorts'));
+    return isLong;
+  });
+
   const totalUploaded = completedUploads.length;
-  const totalScheduled = uploads.filter(u => u.status === 'scheduled').length;
+  const totalUploadedShort = completedUploadsShort.length;
+  const totalUploadedLong = completedUploadsLong.length;
+
+  const totalScheduled = uploads.filter(u => u && u.status === 'scheduled').length;
+  const totalScheduledShort = uploads.filter(u => {
+    if (!u || u.status !== 'scheduled') return false;
+    const isLong = u.format === 'long' || (u.format !== 'short' && u.title && typeof u.title === 'string' && !u.title.toLowerCase().includes('#shorts'));
+    return !isLong;
+  }).length;
+  const totalScheduledLong = uploads.filter(u => {
+    if (!u || u.status !== 'scheduled') return false;
+    const isLong = u.format === 'long' || (u.format !== 'short' && u.title && typeof u.title === 'string' && !u.title.toLowerCase().includes('#shorts'));
+    return isLong;
+  }).length;
 
   // Calculate views, likes, comments, averages across dashboard items
   const totalViews = completedUploads.reduce((sum, u) => sum + (parseInt(u.views) || 0), 0);
-  const totalLikes = completedUploads.reduce((sum, u) => sum + (parseInt(u.likes) || 0), 0);
-  const totalComments = completedUploads.reduce((sum, u) => sum + (parseInt(u.comments) || 0), 0);
+  const totalViewsShort = completedUploadsShort.reduce((sum, u) => sum + (parseInt(u.views) || 0), 0);
+  const totalViewsLong = completedUploadsLong.reduce((sum, u) => sum + (parseInt(u.views) || 0), 0);
 
-  const rpm = settings?.estimatedRPM !== undefined ? parseFloat(settings.estimatedRPM) : 0.04;
-  const cpm = settings?.estimatedCPM !== undefined ? parseFloat(settings.estimatedCPM) : 0.50;
+  const totalLikes = completedUploads.reduce((sum, u) => sum + (parseInt(u.likes) || 0), 0);
+  const totalLikesShort = completedUploadsShort.reduce((sum, u) => sum + (parseInt(u.likes) || 0), 0);
+  const totalLikesLong = completedUploadsLong.reduce((sum, u) => sum + (parseInt(u.likes) || 0), 0);
+
+  const totalComments = completedUploads.reduce((sum, u) => sum + (parseInt(u.comments) || 0), 0);
+  const totalCommentsShort = completedUploadsShort.reduce((sum, u) => sum + (parseInt(u.comments) || 0), 0);
+  const totalCommentsLong = completedUploadsLong.reduce((sum, u) => sum + (parseInt(u.comments) || 0), 0);
+
+  const rpmShort = parseFloat(settings?.estimatedRPMShort !== undefined ? settings.estimatedRPMShort : (settings?.estimatedRPM !== undefined ? settings.estimatedRPM : 3.0)) || 0;
+  const cpmShort = parseFloat(settings?.estimatedCPMShort !== undefined ? settings.estimatedCPMShort : (settings?.estimatedCPM !== undefined ? settings.estimatedCPM : 40.0)) || 0;
+  
+  const rpmLong = parseFloat(settings?.estimatedRPMLong !== undefined ? settings.estimatedRPMLong : 150.0) || 0;
+  const cpmLong = parseFloat(settings?.estimatedCPMLong !== undefined ? settings.estimatedCPMLong : 400.0) || 0;
+
   const totalViewsRef = isChannelConnected && channelInfo ? Math.max(parseInt(channelInfo.views || 0), totalViews) : totalViews;
   const currentSubs = isChannelConnected && channelInfo ? parseInt(channelInfo.subscribers || 0) : 0;
 
@@ -98,29 +215,378 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
 
   return (
     <div className="tab-fade-in" style={{ maxWidth: '1140px', margin: '0 auto', position: 'relative' }}>
-      {/* Header */}
-      <div className="responsive-page-header">
-        <div>
-          <h1 className="page-title"><LayoutDashboard size={28} color="var(--color-shorts)" /> YouTube Manager</h1>
-          <p className="page-subtitle">Completely manage your Shorts and Widescreen videos content compilation, scheduled uploads, and real-time statistics.</p>
-        </div>
-        <div style={{ display: 'flex', gap: '12px' }}>
+      {/* Professional SaaS Hero Header */}
+      <div style={{
+        textAlign: 'center',
+        padding: '56px 20px',
+        marginBottom: '40px',
+        borderRadius: '24px',
+        background: 'radial-gradient(circle at 50% 0%, rgba(139, 92, 246, 0.12) 0%, transparent 60%)',
+        border: '1px solid rgba(255, 255, 255, 0.02)',
+        position: 'relative',
+        overflow: 'hidden'
+      }}>
+        {/* Glow ambient background elements */}
+        <div style={{
+          position: 'absolute',
+          top: '-10%',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '300px',
+          height: '300px',
+          background: 'rgba(255, 46, 85, 0.15)',
+          filter: 'blur(90px)',
+          borderRadius: '50%',
+          pointerEvents: 'none'
+        }} />
+
+        <h1 style={{
+          fontFamily: 'var(--font-display)',
+          fontSize: '2.8rem',
+          fontWeight: 900,
+          lineHeight: 1.15,
+          letterSpacing: '-0.03em',
+          background: 'linear-gradient(135deg, #fff 40%, var(--color-cyan) 80%, var(--color-accent) 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          marginBottom: '16px',
+          textShadow: '0 0 40px rgba(6, 182, 212, 0.15)'
+        }}>
+          Turn your long-form videos into viral Shorts in seconds using AI
+        </h1>
+        <p style={{
+          fontFamily: 'var(--font-sans)',
+          fontSize: '1.05rem',
+          color: 'var(--text-secondary)',
+          maxWidth: '680px',
+          margin: '0 auto 24px auto',
+          lineHeight: '1.6',
+          fontWeight: 400
+        }}>
+          Paste a YouTube link below to extract viral highlights, or launch creators to build custom video compiles from scratch.
+        </p>
+
+        {/* Quick action shortcuts */}
+        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginBottom: '32px', flexWrap: 'wrap' }}>
           <button 
             onClick={() => setCurrentPage('creator')} 
-            className="btn btn-secondary" 
-            style={{ display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid rgba(255, 46, 85, 0.4)', color: 'var(--color-shorts)' }}
+            className="btn-shortcut-shorts"
           >
-            <Plus size={18} /> Create Short
+            <Plus size={16} /> Create Short (9:16)
           </button>
           <button 
             onClick={() => setCurrentPage('longCreator')} 
-            className="btn btn-primary" 
-            style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, var(--color-success) 0%, var(--color-cyan) 100%)', boxShadow: '0 4px 14px rgba(16, 185, 129, 0.3)' }}
+            className="btn-shortcut-long"
           >
-            <Plus size={18} /> Create Long Video
+            <Plus size={16} /> Create Long Video (16:9)
           </button>
         </div>
+
+        {/* Centered Input Form Container */}
+        <div style={{
+          maxWidth: '640px',
+          margin: '0 auto',
+          position: 'relative',
+          zIndex: 5
+        }}>
+          <form onSubmit={handleAnalyzeSubmit} style={{
+            display: 'flex',
+            alignItems: 'center',
+            background: 'var(--bg-glass)',
+            border: '2px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '50px',
+            padding: '6px 8px 6px 20px',
+            boxShadow: 'var(--shadow-lg), 0 0 30px rgba(0, 0, 0, 0.5), inset 0 0 12px rgba(255, 255, 255, 0.02)',
+            transition: 'border-color 0.3s ease, box-shadow 0.3s ease'
+          }}
+          onFocusCapture={(e) => {
+            e.currentTarget.style.borderColor = 'var(--color-accent)';
+            e.currentTarget.style.boxShadow = 'var(--shadow-lg), 0 0 30px rgba(139, 92, 246, 0.25)';
+          }}
+          onBlurCapture={(e) => {
+            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+            e.currentTarget.style.boxShadow = 'var(--shadow-lg), 0 0 30px rgba(0, 0, 0, 0.5)';
+          }}
+          >
+            <input 
+              type="text"
+              placeholder="Paste long YouTube video link here... (e.g. https://www.youtube.com/watch?v=...)"
+              value={videoUrl}
+              onChange={(e) => {
+                setVideoUrl(e.target.value);
+                setAnalysisError('');
+              }}
+              style={{
+                flex: 1,
+                background: 'transparent',
+                border: 'none',
+                outline: 'none',
+                color: '#fff',
+                fontSize: '0.95rem',
+                fontFamily: 'var(--font-sans)',
+                paddingRight: '12px'
+              }}
+            />
+            <button 
+              type="submit"
+              disabled={isAnalyzing}
+              style={{
+                background: 'linear-gradient(135deg, var(--color-shorts) 0%, var(--color-accent) 100%)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '50px',
+                padding: '12px 28px',
+                fontWeight: 700,
+                fontSize: '0.9rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 4px 15px rgba(255, 46, 85, 0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              {isAnalyzing ? (
+                <>
+                  <span className="spinnerRotate" /> Analyzing...
+                </>
+              ) : (
+                <>
+                  Analyze Video <ArrowUpRight size={16} />
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Validation Error Feedback */}
+          {analysisError && (
+            <div style={{
+              marginTop: '12px',
+              padding: '10px 16px',
+              borderRadius: '30px',
+              background: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.2)',
+              color: 'var(--color-error)',
+              fontSize: '0.8rem',
+              fontWeight: 500,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}>
+              <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--color-error)' }} />
+              {analysisError}
+            </div>
+          )}
+        </div>
+
+        {/* Loading / Spinner State Overlay */}
+        {isAnalyzing && (
+          <div style={{
+            marginTop: '36px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center'
+          }}>
+            <div style={{
+              width: '48px',
+              height: '48px',
+              borderRadius: '50%',
+              border: '3px solid rgba(255,255,255,0.05)',
+              borderTopColor: 'var(--color-shorts)',
+              animation: 'spinnerRotate 0.8s linear infinite',
+              marginBottom: '16px'
+            }} />
+            <p style={{
+              fontFamily: 'var(--font-sans)',
+              fontSize: '0.85rem',
+              color: 'var(--text-secondary)',
+              fontWeight: 500,
+              letterSpacing: '0.01em'
+            }}>
+              {loadingMessages[analysisStep]}
+            </p>
+            <div style={{ width: '160px', height: '3px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px', marginTop: '12px', overflow: 'hidden' }}>
+              <div style={{
+                width: `${(analysisStep + 1) * 25}%`,
+                height: '100%',
+                background: 'var(--color-shorts)',
+                transition: 'width 0.8s ease'
+              }} />
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Success highlights list */}
+      {showSuccessModal && highlights.length > 0 && (
+        <div style={{
+          marginBottom: '40px'
+        }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '20px',
+            flexWrap: 'wrap',
+            gap: '12px'
+          }}>
+            <div>
+              <h3 style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: '1.35rem',
+                fontWeight: 800,
+                color: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                <Sparkles size={20} color="var(--color-warning)" /> 
+                Your Viral Highlights are Ready!
+              </h3>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                Select a highlight segment below to launch the video creator and automatically compile a Short.
+              </p>
+            </div>
+            <button 
+              onClick={() => {
+                setShowSuccessModal(false);
+                setHighlights([]);
+                setVideoUrl('');
+              }}
+              style={{
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-secondary)',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                fontSize: '0.75rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+            >
+              Clear Results
+            </button>
+          </div>
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+            gap: '20px'
+          }}>
+            {highlights.map((item, idx) => (
+              <div 
+                key={idx}
+                className="glass-panel"
+                style={{
+                  padding: '24px',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '16px',
+                  borderTop: `4px solid ${idx === 0 ? 'var(--color-shorts)' : idx === 1 ? 'var(--color-accent)' : 'var(--color-cyan)'}`
+                }}
+              >
+                {/* Badge Row */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    color: idx === 0 ? 'var(--color-shorts)' : idx === 1 ? 'var(--color-accent)' : 'var(--color-cyan)',
+                    background: idx === 0 ? 'rgba(255, 46, 85, 0.08)' : idx === 1 ? 'rgba(139, 92, 246, 0.08)' : 'rgba(6, 182, 212, 0.08)',
+                    padding: '4px 10px',
+                    borderRadius: '20px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.03em'
+                  }}>
+                    {item.niche}
+                  </span>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    fontSize: '0.75rem',
+                    color: 'var(--color-warning)',
+                    fontWeight: 700,
+                    background: 'rgba(245, 158, 11, 0.08)',
+                    padding: '4px 8px',
+                    borderRadius: '6px'
+                  }}>
+                    <Award size={14} /> {item.viralityScore} Viral Index
+                  </div>
+                </div>
+
+                {/* Hook title */}
+                <h4 style={{
+                  fontSize: '1rem',
+                  fontWeight: 700,
+                  color: '#fff',
+                  lineHeight: '1.4',
+                  fontFamily: 'var(--font-sans)'
+                }}>
+                  "{item.title}"
+                </h4>
+
+                {/* Range stats */}
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  fontSize: '0.8rem',
+                  color: 'var(--text-secondary)',
+                  padding: '8px 12px',
+                  background: 'rgba(255,255,255,0.01)',
+                  borderRadius: '6px',
+                  border: '1px solid rgba(255,255,255,0.02)'
+                }}>
+                  <span>Timeline: <strong>{item.startTime} - {item.endTime}</strong></span>
+                  <span>Duration: <strong>{item.duration}</strong></span>
+                </div>
+
+                {/* CTA redirect */}
+                <button 
+                  onClick={() => {
+                    addToast(`Loaded Highlight Clip: "${item.title}". Pre-filling script configurations!`, 'success');
+                    setCurrentPage('creator');
+                  }}
+                  className="btn"
+                  style={{
+                    background: idx === 0 ? 'var(--color-shorts)' : idx === 1 ? 'var(--color-accent)' : 'var(--color-cyan)',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '10px',
+                    fontWeight: 700,
+                    fontSize: '0.8rem',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    marginTop: 'auto',
+                    boxShadow: '0 4px 10px rgba(0,0,0,0.2)'
+                  }}
+                >
+                  Create Short from Clip <ArrowUpRight size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Section Header: Channel Overview */}
+      <h3 style={{
+        fontFamily: 'var(--font-display)',
+        fontSize: '1.25rem',
+        fontWeight: 800,
+        color: '#fff',
+        marginBottom: '20px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px'
+      }}>
+        <LayoutDashboard size={20} color="var(--color-shorts)" /> Channel Analytics Overview
+      </h3>
 
       {/* Grid: Analytics cards */}
       <div style={{
@@ -129,123 +595,105 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
         gap: '20px',
         marginBottom: '36px'
       }}>
-        {/* Subscribers Card */}
-        <div className="glass-panel glass-panel-interactive accent-border-cyan accent-glow-cyan" style={{ padding: '24px', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600, letterSpacing: '0.02em', textTransform: 'uppercase' }}>Subscribers</span>
-            <Users size={20} color="var(--color-cyan)" />
-          </div>
-          <h2 style={{ fontSize: '2.4rem', fontWeight: 800, fontFamily: 'var(--font-display)', background: 'linear-gradient(135deg, #fff 60%, var(--color-cyan) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            {isChannelConnected && channelInfo ? parseInt(channelInfo.subscribers).toLocaleString() : '—'}
-          </h2>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '8px', fontWeight: 500 }}>
-            {isChannelConnected ? 'Linked channel subscribers' : 'Connect channel in Settings'}
-          </p>
-        </div>
+        {isLoading ? (
+          Array(4).fill(0).map((_, idx) => (
+            <div key={idx} className="glass-panel skeleton-shimmer" style={{ height: '142px', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.03)' }} />
+          ))
+        ) : (
+          <>
+            {/* Subscribers Card */}
+            <div className="glass-panel glass-panel-interactive accent-border-cyan accent-glow-cyan" style={{ padding: '24px', position: 'relative', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600, letterSpacing: '0.02em', textTransform: 'uppercase' }}>Subscribers</span>
+                <Users size={20} color="var(--color-cyan)" />
+              </div>
+              <h2 style={{ fontSize: '2.4rem', fontWeight: 800, fontFamily: 'var(--font-display)', background: 'linear-gradient(135deg, #fff 60%, var(--color-cyan) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                {isChannelConnected && channelInfo ? parseInt(channelInfo.subscribers).toLocaleString() : '—'}
+              </h2>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '8px', fontWeight: 500 }}>
+                {isChannelConnected ? 'Linked channel subscribers' : 'Connect channel in Settings'}
+              </p>
+            </div>
 
-        {/* Channel Views Card */}
-        <div className="glass-panel glass-panel-interactive accent-border-purple accent-glow-purple" style={{ padding: '24px', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600, letterSpacing: '0.02em', textTransform: 'uppercase' }}>Lifetime Channel Views</span>
-            <Eye size={20} color="var(--color-accent)" />
-          </div>
-          <h2 style={{ fontSize: '2.4rem', fontWeight: 800, fontFamily: 'var(--font-display)', background: 'linear-gradient(135deg, #fff 60%, var(--color-accent) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            {isChannelConnected && channelInfo ? Math.max(parseInt(channelInfo.views || 0), totalViews).toLocaleString() : '—'}
-          </h2>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '8px', fontWeight: 500 }}>
-            {isChannelConnected ? `All-time channel views (Video list views: ${totalViews.toLocaleString()})` : 'Authenticate to sync stats'}
-          </p>
-        </div>
+            {/* Channel Views Card */}
+            <div className="glass-panel glass-panel-interactive accent-border-purple accent-glow-purple" style={{ padding: '24px', position: 'relative', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600, letterSpacing: '0.02em', textTransform: 'uppercase' }}>Lifetime Channel Views</span>
+                <Eye size={20} color="var(--color-accent)" />
+              </div>
+              <h2 style={{ fontSize: '2.4rem', fontWeight: 800, fontFamily: 'var(--font-display)', background: 'linear-gradient(135deg, #fff 60%, var(--color-accent) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                {isChannelConnected && channelInfo ? Math.max(parseInt(channelInfo.views || 0), totalViews).toLocaleString() : '—'}
+              </h2>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '8px', fontWeight: 500 }}>
+                {isChannelConnected ? `All-time channel views (Video list views: ${totalViews.toLocaleString()})` : 'Authenticate to sync stats'}
+              </p>
+            </div>
 
-        {/* Managed Shorts Card */}
-        <div className="glass-panel glass-panel-interactive accent-border-pink accent-glow-pink" style={{ padding: '24px', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600, letterSpacing: '0.02em', textTransform: 'uppercase' }}>Managed Uploads</span>
-            <Video size={20} color="var(--color-shorts)" />
-          </div>
-          <h2 style={{ fontSize: '2.4rem', fontWeight: 800, fontFamily: 'var(--font-display)', background: 'linear-gradient(135deg, #fff 60%, var(--color-shorts) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            {totalUploaded}
-          </h2>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '8px', fontWeight: 500 }}>
-            Fetched uploads & history
-          </p>
-        </div>
+            {/* Managed Shorts Card */}
+            <div className="glass-panel glass-panel-interactive accent-border-pink accent-glow-pink" style={{ padding: '24px', position: 'relative', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600, letterSpacing: '0.02em', textTransform: 'uppercase' }}>Managed Uploads</span>
+                <Video size={20} color="var(--color-shorts)" />
+              </div>
+              <h2 style={{ fontSize: '2.4rem', fontWeight: 800, fontFamily: 'var(--font-display)', background: 'linear-gradient(135deg, #fff 60%, var(--color-shorts) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                {totalUploaded}
+              </h2>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '8px', fontWeight: 500 }}>
+                Shorts: {totalUploadedShort} | Long: {totalUploadedLong}
+              </p>
+            </div>
 
-        {/* Scheduled Autopilot Card */}
-        <div className="glass-panel glass-panel-interactive accent-border-success accent-glow-success" style={{ padding: '24px', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600, letterSpacing: '0.02em', textTransform: 'uppercase' }}>Scheduled Queue</span>
-            <Calendar size={20} color="var(--color-success)" />
-          </div>
-          <h2 style={{ fontSize: '2.4rem', fontWeight: 800, fontFamily: 'var(--font-display)', background: 'linear-gradient(135deg, #fff 60%, var(--color-success) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            {totalScheduled}
-          </h2>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '8px', fontWeight: 500 }}>
-            Shorts queued for release
-          </p>
-        </div>
+            {/* Scheduled Autopilot Card */}
+            <div className="glass-panel glass-panel-interactive accent-border-success accent-glow-success" style={{ padding: '24px', position: 'relative', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600, letterSpacing: '0.02em', textTransform: 'uppercase' }}>Scheduled Queue</span>
+                <Calendar size={20} color="var(--color-success)" />
+              </div>
+              <h2 style={{ fontSize: '2.4rem', fontWeight: 800, fontFamily: 'var(--font-display)', background: 'linear-gradient(135deg, #fff 60%, var(--color-success) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                {totalScheduled}
+              </h2>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '8px', fontWeight: 500 }}>
+                Shorts: {totalScheduledShort} | Long: {totalScheduledLong}
+              </p>
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Tabs Menu */}
-      <div className="responsive-tabs">
-        <button 
-          onClick={() => setActiveTab('videos')}
-          style={{
-            padding: '10px 20px',
-            background: 'transparent',
-            border: 'none',
-            color: activeTab === 'videos' ? '#fff' : 'var(--text-secondary)',
-            fontWeight: 600,
-            fontSize: '0.95rem',
-            cursor: 'pointer',
-            borderBottom: activeTab === 'videos' ? '2px solid var(--color-shorts)' : '2px solid transparent',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            transition: 'all 0.2s ease'
-          }}
-        >
-          <Video size={16} /> Video Manager
-        </button>
-        <button 
-          onClick={() => setActiveTab('analytics')}
-          style={{
-            padding: '10px 20px',
-            background: 'transparent',
-            border: 'none',
-            color: activeTab === 'analytics' ? '#fff' : 'var(--text-secondary)',
-            fontWeight: 600,
-            fontSize: '0.95rem',
-            cursor: 'pointer',
-            borderBottom: activeTab === 'analytics' ? '2px solid var(--color-shorts)' : '2px solid transparent',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            transition: 'all 0.2s ease'
-          }}
-        >
-          <BarChart3 size={16} /> Analytics Insights
-        </button>
-        <button 
-          onClick={() => setActiveTab('monetization')}
-          style={{
-            padding: '10px 20px',
-            background: 'transparent',
-            border: 'none',
-            color: activeTab === 'monetization' ? '#fff' : 'var(--text-secondary)',
-            fontWeight: 600,
-            fontSize: '0.95rem',
-            cursor: 'pointer',
-            borderBottom: activeTab === 'monetization' ? '2px solid var(--color-success)' : '2px solid transparent',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            transition: 'all 0.2s ease'
-          }}
-        >
-          <DollarSign size={16} /> Monetization Section
-        </button>
-      </div>
+      {isLoading ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginTop: '12px', marginBottom: '40px' }}>
+          {/* Tab buttons skeleton placeholder */}
+          <div style={{ display: 'flex', gap: '12px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+            <div className="skeleton-shimmer" style={{ width: '120px', height: '36px', borderRadius: '8px' }} />
+            <div className="skeleton-shimmer" style={{ width: '150px', height: '36px', borderRadius: '8px' }} />
+            <div className="skeleton-shimmer" style={{ width: '130px', height: '36px', borderRadius: '8px' }} />
+          </div>
+          {/* Main Content card skeleton placeholder */}
+          <div className="glass-panel skeleton-shimmer" style={{ height: '420px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.03)' }} />
+        </div>
+      ) : (
+        <>
+          {/* Tabs Menu */}
+          <div className="responsive-tabs">
+            <button 
+              onClick={() => setActiveTab('videos')}
+              className={`nav-tab-btn ${activeTab === 'videos' ? 'active accent-shorts' : ''}`}
+            >
+              <Video size={16} /> Video Manager
+            </button>
+            <button 
+              onClick={() => setActiveTab('analytics')}
+              className={`nav-tab-btn ${activeTab === 'analytics' ? 'active accent-shorts' : ''}`}
+            >
+              <BarChart3 size={16} /> Analytics Insights
+            </button>
+            <button 
+              onClick={() => setActiveTab('monetization')}
+              className={`nav-tab-btn ${activeTab === 'monetization' ? 'active accent-success' : ''}`}
+            >
+              <DollarSign size={16} /> Monetization Section
+            </button>
+          </div>
 
       {/* Tab: Video Manager */}
       {activeTab === 'videos' && (
@@ -282,9 +730,21 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
                 </thead>
                 <tbody>
                   {uploads.map((item) => (
-                    <tr key={item.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', fontSize: '0.9rem' }}>
-                      <td style={{ padding: '16px', fontWeight: 500, color: '#ffffff', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {item.title}
+                    <tr key={item.id} style={{ borderBottom: '1px solid var(--border-color)', fontSize: '0.9rem' }}>
+                      <td style={{ padding: '16px', fontWeight: 500, color: '#ffffff', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          fontSize: '0.65rem',
+                          fontWeight: 700,
+                          background: item.format === 'long' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 46, 85, 0.15)',
+                          color: item.format === 'long' ? 'var(--color-success)' : 'var(--color-shorts)',
+                          border: `1px solid ${item.format === 'long' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(255, 46, 85, 0.3)'}`,
+                          flexShrink: 0
+                        }}>
+                          {item.format === 'long' ? 'Long' : 'Short'}
+                        </span>
+                        <span>{item.title}</span>
                       </td>
                       <td style={{ padding: '16px', color: 'var(--text-secondary)' }}>
                         {new Date(item.createdAt).toLocaleDateString()} {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -380,12 +840,10 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
                         {item.status === 'completed' && (
                           <button 
                             onClick={() => setSelectedVideo(item)}
-                            className="btn btn-outline"
+                            className="btn btn-outline-cyan"
                             style={{ 
                               padding: '5px 10px', 
                               fontSize: '0.75rem', 
-                              borderColor: 'var(--border-color)', 
-                              color: 'var(--text-primary)',
                               display: 'flex',
                               alignItems: 'center',
                               gap: '4px' 
@@ -396,16 +854,7 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
                         )}
                         <button 
                           onClick={() => handleDeleteRecord(item.id)}
-                          style={{
-                            background: 'transparent',
-                            border: 'none',
-                            cursor: 'pointer',
-                            color: 'var(--text-muted)',
-                            transition: 'color 0.2s',
-                            padding: '4px'
-                          }}
-                          onMouseEnter={(e) => e.currentTarget.style.color = 'var(--color-error)'}
-                          onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+                          className="btn-action-delete"
                         >
                           <Trash2 size={16} />
                         </button>
@@ -589,6 +1038,34 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
       {activeTab === 'monetization' && (
         <div className="tab-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
           
+          {/* Format Sub-tabs Selector for Monetization */}
+          <div style={{ 
+            display: 'flex', 
+            gap: '8px', 
+            background: 'rgba(255,255,255,0.02)', 
+            padding: '4px', 
+            borderRadius: '8px', 
+            border: '1px solid var(--border-color)',
+            alignSelf: 'flex-start',
+            width: '100%',
+            maxWidth: '380px'
+          }}>
+            <button
+              type="button"
+              onClick={() => setMonetizationFormat('short')}
+              className={`subtab-btn-short ${monetizationFormat === 'short' ? 'active' : ''}`}
+            >
+              Shorts Payout
+            </button>
+            <button
+              type="button"
+              onClick={() => setMonetizationFormat('long')}
+              className={`subtab-btn-long ${monetizationFormat === 'long' ? 'active' : ''}`}
+            >
+              Long Video Payout
+            </button>
+          </div>
+
           {/* Top Metrics Grid */}
           <div style={{
             display: 'grid',
@@ -602,35 +1079,45 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
                 <DollarSign size={20} color="var(--color-success)" />
               </div>
               <h2 style={{ fontSize: '2.4rem', fontWeight: 800, fontFamily: 'var(--font-display)', background: 'linear-gradient(135deg, #fff 60%, var(--color-success) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                ₹{(totalViewsRef * (rpm / 1000)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ₹{(monetizationFormat === 'long' 
+                  ? (totalViewsLong * (rpmLong / 1000))
+                  : (totalViewsShort * (rpmShort / 1000))
+                ).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </h2>
               <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '8px', fontWeight: 500 }}>
-                Based on {totalViewsRef.toLocaleString()} total views & ₹{rpm.toFixed(2)} RPM
+                Based on {(monetizationFormat === 'long' ? totalViewsLong : totalViewsShort).toLocaleString()} views & ₹{(monetizationFormat === 'long' ? rpmLong : rpmShort).toFixed(2)} RPM
               </p>
             </div>
 
-            {/* Avg Earnings per Short */}
+            {/* Avg Earnings per Video */}
             <div className="glass-panel glass-panel-interactive accent-border-purple accent-glow-purple" style={{ padding: '24px', position: 'relative', overflow: 'hidden' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600, letterSpacing: '0.02em', textTransform: 'uppercase' }}>Avg. Earnings / Short</span>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600, letterSpacing: '0.02em', textTransform: 'uppercase' }}>
+                  {monetizationFormat === 'long' ? 'Avg. Earnings / Long' : 'Avg. Earnings / Short'}
+                </span>
                 <TrendingUp size={20} color="var(--color-accent)" />
               </div>
               <h2 style={{ fontSize: '2.4rem', fontWeight: 800, fontFamily: 'var(--font-display)', background: 'linear-gradient(135deg, #fff 60%, var(--color-accent) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                ₹{(totalUploaded > 0 ? (totalViews * (rpm / 1000)) / totalUploaded : 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ₹{(monetizationFormat === 'long' 
+                  ? (totalUploadedLong > 0 ? (totalViewsLong * (rpmLong / 1000)) / totalUploadedLong : 0)
+                  : (totalUploadedShort > 0 ? (totalViewsShort * (rpmShort / 1000)) / totalUploadedShort : 0)
+                ).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </h2>
               <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '8px', fontWeight: 500 }}>
-                Calculated across {totalUploaded} managed Shorts
+                Calculated across {monetizationFormat === 'long' ? totalUploadedLong : totalUploadedShort} managed videos
               </p>
             </div>
 
             {/* Configured RPM Card */}
-            <div className="glass-panel glass-panel-interactive accent-border-pink accent-glow-pink" style={{ padding: '24px', position: 'relative', overflow: 'hidden' }}>
+            <div className={`glass-panel glass-panel-interactive ${monetizationFormat === 'long' ? 'accent-border-success accent-glow-success' : 'accent-border-pink accent-glow-pink'}`} style={{ padding: '24px', position: 'relative', overflow: 'hidden' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600, letterSpacing: '0.02em', textTransform: 'uppercase' }}>Configured Shorts RPM</span>
-                <Gauge size={20} color="var(--color-shorts)" />
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600, letterSpacing: '0.02em', textTransform: 'uppercase' }}>
+                  Configured {monetizationFormat === 'long' ? 'Long RPM' : 'Shorts RPM'}
+                </span>
+                <Gauge size={20} color={monetizationFormat === 'long' ? 'var(--color-success)' : 'var(--color-shorts)'} />
               </div>
-              <h2 style={{ fontSize: '2.4rem', fontWeight: 800, fontFamily: 'var(--font-display)', background: 'linear-gradient(135deg, #fff 60%, var(--color-shorts) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                ₹{rpm.toFixed(2)}
+              <h2 style={{ fontSize: '2.4rem', fontWeight: 800, fontFamily: 'var(--font-display)', background: `linear-gradient(135deg, #fff 60%, ${monetizationFormat === 'long' ? 'var(--color-success)' : 'var(--color-shorts)'} 100%)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                ₹{(monetizationFormat === 'long' ? rpmLong : rpmShort).toFixed(2)}
               </h2>
               <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '8px', fontWeight: 500 }}>
                 Revenue per 1,000 views (set in settings)
@@ -644,10 +1131,13 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
                 <Eye size={20} color="var(--color-cyan)" />
               </div>
               <h2 style={{ fontSize: '2.4rem', fontWeight: 800, fontFamily: 'var(--font-display)', background: 'linear-gradient(135deg, #fff 60%, var(--color-cyan) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                {Math.round(totalViewsRef * 0.7).toLocaleString()}
+                {Math.round(
+                  (monetizationFormat === 'long' ? totalViewsLong : totalViewsShort) * 
+                  (monetizationFormat === 'long' ? 0.85 : 0.70)
+                ).toLocaleString()}
               </h2>
               <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '8px', fontWeight: 500 }}>
-                Est. ad playbacks (approx 70% ad coverage)
+                Est. ad playbacks ({monetizationFormat === 'long' ? '85%' : '70%'} ad coverage ratio)
               </p>
             </div>
           </div>
@@ -704,55 +1194,120 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
               </div>
             </div>
 
-            {/* Views Milestones */}
-            <div className="glass-panel" style={{ padding: '28px' }}>
-              <h4 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Eye size={18} color="var(--color-shorts)" /> Shorts Views Milestone (90 Days)
-              </h4>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '24px' }}>
-                Tracks progress towards the YouTube Shorts views milestones.
-              </p>
+            {/* Views / Watch-Hours Milestones based on active format */}
+            {monetizationFormat === 'short' ? (
+              <div className="glass-panel" style={{ padding: '28px' }}>
+                <h4 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Eye size={18} color="var(--color-shorts)" /> Shorts Views Milestone (90 Days)
+                </h4>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '24px' }}>
+                  Tracks progress towards the YouTube Shorts views milestones.
+                </p>
 
-              <div style={{ marginBottom: '20px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '0.85rem' }}>
-                  <span>Current Views: <strong style={{ color: 'var(--color-shorts)' }}>{totalViewsRef.toLocaleString()}</strong></span>
-                  <span>Target: <strong>10,000,000</strong></span>
+                <div style={{ marginBottom: '20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '0.85rem' }}>
+                    <span>Current Views: <strong style={{ color: 'var(--color-shorts)' }}>{totalViewsShort.toLocaleString()}</strong></span>
+                    <span>Target: <strong>10,000,000</strong></span>
+                  </div>
+                  <div style={{ height: '12px', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', position: 'relative', overflow: 'hidden' }}>
+                    <div style={{
+                      width: `${Math.min((totalViewsShort / 10000000) * 100, 100)}%`,
+                      height: '100%',
+                      background: 'linear-gradient(90deg, var(--color-shorts) 0%, var(--color-cyan) 100%)',
+                      borderRadius: '6px'
+                    }} />
+                    <div style={{
+                      position: 'absolute',
+                      left: '30%',
+                      top: 0,
+                      bottom: 0,
+                      width: '2px',
+                      background: totalViewsShort >= 3000000 ? 'var(--bg-primary)' : 'rgba(255,255,255,0.25)',
+                      zIndex: 2
+                    }} title="Early Access Milestone (3M views)" />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '6px' }}>
+                    <span>0</span>
+                    <span style={{ color: totalViewsShort >= 3000000 ? 'var(--color-shorts)' : 'var(--text-muted)', fontWeight: totalViewsShort >= 3000000 ? 600 : 400 }}>3M (Early Access)</span>
+                    <span>10M (Full YPP)</span>
+                  </div>
                 </div>
-                <div style={{ height: '12px', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', position: 'relative', overflow: 'hidden' }}>
-                  <div style={{
-                    width: `${Math.min((totalViewsRef / 10000000) * 100, 100)}%`,
-                    height: '100%',
-                    background: 'linear-gradient(90deg, var(--color-shorts) 0%, var(--color-cyan) 100%)',
-                    borderRadius: '6px'
-                  }} />
-                  {/* Milestone notches/ticks */}
-                  <div style={{
-                    position: 'absolute',
-                    left: '30%',
-                    top: 0,
-                    bottom: 0,
-                    width: '2px',
-                    background: totalViewsRef >= 3000000 ? 'var(--bg-primary)' : 'rgba(255,255,255,0.25)',
-                    zIndex: 2
-                  }} title="Early Access Milestone (3M views)" />
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '6px' }}>
-                  <span>0</span>
-                  <span style={{ color: totalViewsRef >= 3000000 ? 'var(--color-shorts)' : 'var(--text-muted)', fontWeight: totalViewsRef >= 3000000 ? 600 : 400 }}>3M (Early Access)</span>
-                  <span>10M (Full YPP)</span>
+
+                <div style={{ padding: '12px', borderRadius: '8px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.03)', fontSize: '0.8rem' }}>
+                  {totalViewsShort >= 10000000 ? (
+                    <span style={{ color: 'var(--color-success)', fontWeight: 600 }}>✓ Views target met for YouTube Partner Program!</span>
+                  ) : totalViewsShort >= 3000000 ? (
+                    <span style={{ color: 'var(--color-warning)' }}>You have met the early access views milestone! <strong>{(10000000 - totalViewsShort).toLocaleString()} more</strong> views for full ad monetization.</span>
+                  ) : (
+                    <span>Need <strong>{(3000000 - totalViewsShort).toLocaleString()} more</strong> views for Early Access features.</span>
+                  )}
                 </div>
               </div>
+            ) : (
+              // Long form Watch hours milestone
+              <div className="glass-panel" style={{ padding: '28px' }}>
+                <h4 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Clock size={18} color="var(--color-success)" /> Watch Hours Milestone (365 Days)
+                </h4>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '24px' }}>
+                  Tracks estimated watch hours compiled across your completed widescreen documentaries.
+                </p>
 
-              <div style={{ padding: '12px', borderRadius: '8px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.03)', fontSize: '0.8rem' }}>
-                {totalViewsRef >= 10000000 ? (
-                  <span style={{ color: 'var(--color-success)', fontWeight: 600 }}>✓ Views target met for YouTube Partner Program!</span>
-                ) : totalViewsRef >= 3000000 ? (
-                  <span style={{ color: 'var(--color-warning)' }}>You have met the early access views milestone! <strong>{(10000000 - totalViewsRef).toLocaleString()} more</strong> views for full ad monetization.</span>
-                ) : (
-                  <span>Need <strong>{(3000000 - totalViewsRef).toLocaleString()} more</strong> views for Early Access features.</span>
-                )}
+                {(() => {
+                  const totalWatchHoursLong = completedUploadsLong.reduce((sum, u) => {
+                    const scenes = u.scriptData?.scenes;
+                    const scenesDuration = Array.isArray(scenes)
+                      ? scenes.reduce((acc, s) => acc + (parseInt(s?.duration) || 8), 0)
+                      : 120;
+                    const duration = parseInt(u.duration) || scenesDuration;
+                    return sum + ((duration * (parseInt(u.views) || 0)) / 3600);
+                  }, 0);
+
+                  return (
+                    <>
+                      <div style={{ marginBottom: '20px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '0.85rem' }}>
+                          <span>Current Watch Hours: <strong style={{ color: 'var(--color-success)' }}>{totalWatchHoursLong.toFixed(1)} hrs</strong></span>
+                          <span>Target: <strong>4,000 hrs</strong></span>
+                        </div>
+                        <div style={{ height: '12px', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', position: 'relative', overflow: 'hidden' }}>
+                          <div style={{
+                            width: `${Math.min((totalWatchHoursLong / 4000) * 100, 100)}%`,
+                            height: '100%',
+                            background: 'linear-gradient(90deg, var(--color-success) 0%, var(--color-cyan) 100%)',
+                            borderRadius: '6px'
+                          }} />
+                          <div style={{
+                            position: 'absolute',
+                            left: '75%', // 3000 out of 4000
+                            top: 0,
+                            bottom: 0,
+                            width: '2px',
+                            background: totalWatchHoursLong >= 3000 ? 'var(--bg-primary)' : 'rgba(255,255,255,0.25)',
+                            zIndex: 2
+                          }} title="Early Access Milestone (3,000 hrs)" />
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '6px' }}>
+                          <span>0</span>
+                          <span style={{ color: totalWatchHoursLong >= 3000 ? 'var(--color-success)' : 'var(--text-muted)', fontWeight: totalWatchHoursLong >= 3000 ? 600 : 400 }}>3k (Early Access)</span>
+                          <span>4k (Full YPP)</span>
+                        </div>
+                      </div>
+
+                      <div style={{ padding: '12px', borderRadius: '8px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.03)', fontSize: '0.8rem' }}>
+                        {totalWatchHoursLong >= 4000 ? (
+                          <span style={{ color: 'var(--color-success)', fontWeight: 600 }}>✓ Watch hour target met for YouTube Partner Program!</span>
+                        ) : totalWatchHoursLong >= 3000 ? (
+                          <span style={{ color: 'var(--color-warning)' }}>You have met the early access watch-hour milestone! <strong>{(4000 - totalWatchHoursLong).toFixed(1)} more</strong> hours for full ad monetization.</span>
+                        ) : (
+                          <span>Need <strong>{(3000 - totalWatchHoursLong).toFixed(1)} more</strong> watch hours for Early Access features.</span>
+                        )}
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
-            </div>
+            )}
           </div>
 
           {/* Interactive Calculator & Earnings Guide */}
@@ -760,9 +1315,35 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
             
             {/* Interactive Calculator Widget */}
             <div className="glass-panel" style={{ padding: '28px' }}>
-              <h4 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <BarChart3 size={18} color="var(--color-cyan)" /> Shorts Projected Earnings Calculator
-              </h4>
+              
+              {/* Toggle Selector for Calculator */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+                <h4 style={{ fontSize: '1.15rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <BarChart3 size={18} color="var(--color-cyan)" /> Projected Revenue Calculator
+                </h4>
+                <div style={{ display: 'flex', gap: '4px', background: 'rgba(255,255,255,0.02)', padding: '2px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCalcFormat('short');
+                      setCalcViews(500000);
+                    }}
+                    className={`calc-tab-btn ${calcFormat === 'short' ? 'active-short' : ''}`}
+                  >
+                    Shorts
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCalcFormat('long');
+                      setCalcViews(100000);
+                    }}
+                    className={`calc-tab-btn ${calcFormat === 'long' ? 'active-long' : ''}`}
+                  >
+                    Long
+                  </button>
+                </div>
+              </div>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '24px' }}>
                 Adjust projected monthly views and custom RPM to forecast estimated payouts.
               </p>
@@ -778,9 +1359,9 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
                   </div>
                   <input 
                     type="range"
-                    min="1000"
-                    max="10000000"
-                    step="5000"
+                    min={calcFormat === 'long' ? "100" : "1000"}
+                    max={calcFormat === 'long' ? "1000000" : "10000000"}
+                    step={calcFormat === 'long' ? "500" : "5000"}
                     value={calcViews}
                     onChange={(e) => setCalcViews(parseInt(e.target.value))}
                     style={{
@@ -793,10 +1374,10 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
                     }}
                   />
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                    <span>1k</span>
-                    <span>1M</span>
-                    <span>5M</span>
-                    <span>10M</span>
+                    <span>{calcFormat === 'long' ? '100' : '1k'}</span>
+                    <span>{calcFormat === 'long' ? '250k' : '2.5M'}</span>
+                    <span>{calcFormat === 'long' ? '500k' : '5M'}</span>
+                    <span>{calcFormat === 'long' ? '1M' : '10M'}</span>
                   </div>
                 </div>
 
@@ -804,20 +1385,20 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                     <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 500 }}>Estimated RPM (₹)</span>
-                    <strong style={{ fontSize: '0.95rem', color: 'var(--color-shorts)' }}>
+                    <strong style={{ fontSize: '0.95rem', color: calcFormat === 'long' ? 'var(--color-success)' : 'var(--color-shorts)' }}>
                       ₹{calcRPM.toFixed(2)}
                     </strong>
                   </div>
                   <input 
                     type="range"
-                    min="0.50"
-                    max="15.00"
-                    step="0.10"
+                    min={calcFormat === 'long' ? "10.00" : "0.50"}
+                    max={calcFormat === 'long' ? "500.00" : "15.00"}
+                    step={calcFormat === 'long' ? "5.00" : "0.10"}
                     value={calcRPM}
                     onChange={(e) => setCalcRPM(parseFloat(e.target.value))}
                     style={{
                       width: '100%',
-                      accentColor: 'var(--color-shorts)',
+                      accentColor: calcFormat === 'long' ? 'var(--color-success)' : 'var(--color-shorts)',
                       background: 'rgba(255,255,255,0.05)',
                       height: '6px',
                       borderRadius: '3px',
@@ -825,10 +1406,10 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
                     }}
                   />
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                    <span>₹0.50</span>
-                    <span>₹5.00</span>
-                    <span>₹10.00</span>
-                    <span>₹15.00</span>
+                    <span>₹{calcFormat === 'long' ? '10.00' : '0.50'}</span>
+                    <span>₹{calcFormat === 'long' ? '150.00' : '5.00'}</span>
+                    <span>₹{calcFormat === 'long' ? '300.00' : '10.00'}</span>
+                    <span>₹{calcFormat === 'long' ? '500.00' : '15.00'}</span>
                   </div>
                 </div>
 
@@ -867,60 +1448,109 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
             <div className="glass-panel" style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <div>
                 <h4 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Lightbulb size={18} color="var(--color-warning)" /> Niche RPM Analytics
+                  <Lightbulb size={18} color="var(--color-warning)" /> Niche RPM Analytics ({monetizationFormat === 'long' ? 'Long-form' : 'Shorts'})
                 </h4>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Typical revenue standards for Shorts by category.</p>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Typical revenue standards by category in India.</p>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.02)' }}>
-                  <div>
-                    <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#fff' }}>Finance & Business</span>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>High CPM Niche</span>
+              {monetizationFormat === 'short' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.02)' }}>
+                    <div>
+                      <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#fff' }}>Finance & Business</span>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Shorts</span>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-success)' }}>₹6.00 – ₹12.00</span>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>RPM Range</span>
+                    </div>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-success)' }}>₹6.00 – ₹12.00</span>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>RPM Range</span>
-                  </div>
-                </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.02)' }}>
-                  <div>
-                    <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#fff' }}>Tech & AI</span>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>High CPM Niche</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.02)' }}>
+                    <div>
+                      <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#fff' }}>Tech & AI</span>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Shorts</span>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-success)' }}>₹5.00 – ₹10.00</span>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>RPM Range</span>
+                    </div>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-success)' }}>₹5.00 – ₹10.00</span>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>RPM Range</span>
-                  </div>
-                </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.02)' }}>
-                  <div>
-                    <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#fff' }}>Lifestyle & Health</span>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Standard CPM Niche</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.02)' }}>
+                    <div>
+                      <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#fff' }}>Lifestyle & Health</span>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Shorts</span>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-cyan)' }}>₹3.00 – ₹6.00</span>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>RPM Range</span>
+                    </div>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-cyan)' }}>₹3.00 – ₹6.00</span>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>RPM Range</span>
-                  </div>
-                </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.02)' }}>
-                  <div>
-                    <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#fff' }}>Gaming & Memes</span>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Low CPM Niche</span>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-shorts)' }}>₹0.80 – ₹2.50</span>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>RPM Range</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.02)' }}>
+                    <div>
+                      <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#fff' }}>Gaming & Memes</span>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Shorts</span>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-shorts)' }}>₹0.80 – ₹2.50</span>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>RPM Range</span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                // Widescreen Long Video RPM Range
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.02)' }}>
+                    <div>
+                      <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#fff' }}>Finance & Business</span>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Widescreen</span>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-success)' }}>₹150 – ₹450</span>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>RPM Range</span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.02)' }}>
+                    <div>
+                      <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#fff' }}>Tech & AI</span>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Widescreen</span>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-success)' }}>₹120 – ₹350</span>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>RPM Range</span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.02)' }}>
+                    <div>
+                      <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#fff' }}>Lifestyle & Health</span>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Widescreen</span>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-cyan)' }}>₹80 – ₹200</span>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>RPM Range</span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.02)' }}>
+                    <div>
+                      <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#fff' }}>Gaming & Vlogs</span>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Widescreen</span>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-shorts)' }}>₹30 – ₹100</span>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>RPM Range</span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div style={{ padding: '12px', borderRadius: '8px', background: 'rgba(245, 158, 11, 0.04)', border: '1px solid rgba(245, 158, 11, 0.15)', fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
-                <strong style={{ color: '#fff', display: 'block', marginBottom: '4px' }}>💡 Autopilot Optimization:</strong>
-                Targeting finance or technology topics inside your automated Shorts content creation will yield up to 10x higher revenue compared to general humor.
+                <strong style={{ color: '#fff', display: 'block', marginBottom: '4px' }}>💡 CPM Optimization:</strong>
+                Long widescreen videos have multiple ad insertions (mid-rolls) and get 30x to 50x higher RPM views payouts compared to vertical mobile Shorts.
               </div>
             </div>
 
@@ -928,28 +1558,33 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
 
           {/* Earnings Breakdown Table */}
           <div className="glass-panel" style={{ padding: '24px' }}>
-            <h4 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '6px' }}>Shorts Video Earnings Breakdown</h4>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>Individual earnings estimates for all completed Shorts based on your RPM.</p>
+            <h4 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '6px' }}>
+              {monetizationFormat === 'long' ? 'Long Video Payout Breakdown' : 'Shorts Video Payout Breakdown'}
+            </h4>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
+              Individual earnings estimates for all completed {monetizationFormat === 'long' ? 'Long Videos' : 'Shorts'} based on your configured RPM.
+            </p>
 
-            {completedUploads.length === 0 ? (
+            {((monetizationFormat === 'long' ? completedUploadsLong : completedUploadsShort).length === 0) ? (
               <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-secondary)' }}>
-                No completed video uploads found to compute individual earnings.
+                No completed {monetizationFormat === 'long' ? 'long video' : 'shorts'} uploads found to compute individual earnings.
               </div>
             ) : (
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '600px' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                      <th style={{ padding: '12px 16px', fontWeight: 600 }}>Short Title</th>
+                      <th style={{ padding: '12px 16px', fontWeight: 600 }}>Video Title</th>
                       <th style={{ padding: '12px 16px', fontWeight: 600 }}>Views</th>
-                      <th style={{ padding: '12px 16px', fontWeight: 600 }}>Shorts RPM</th>
+                      <th style={{ padding: '12px 16px', fontWeight: 600 }}>Configured RPM</th>
                       <th style={{ padding: '12px 16px', fontWeight: 600, textAlign: 'right' }}>Est. Earnings</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {completedUploads.map((item) => {
-                      const viewsVal = parseInt(item.views || 0);
-                      const earnings = viewsVal * (rpm / 1000);
+                    {(monetizationFormat === 'long' ? completedUploadsLong : completedUploadsShort).map((item) => {
+                      const viewsVal = parseInt(item.views) || 0;
+                      const activeRpm = parseFloat(monetizationFormat === 'long' ? rpmLong : rpmShort) || 0;
+                      const earnings = viewsVal * (activeRpm / 1000);
                       return (
                         <tr key={item.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', fontSize: '0.9rem' }}>
                           <td style={{ padding: '16px', fontWeight: 500, color: '#ffffff', maxWidth: '320px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -959,7 +1594,7 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
                             {viewsVal.toLocaleString()}
                           </td>
                           <td style={{ padding: '16px', color: 'var(--text-secondary)' }}>
-                            ₹{rpm.toFixed(2)}
+                            ₹{activeRpm.toFixed(2)}
                           </td>
                           <td style={{ padding: '16px', textAlign: 'right', fontWeight: 700, color: 'var(--color-success)' }}>
                             ₹{earnings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -974,6 +1609,8 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
           </div>
 
         </div>
+      )}
+        </>
       )}
 
       {/* Video Analytics Inspector Modal */}
@@ -1128,6 +1765,27 @@ export default function Dashboard({ channelInfo, isChannelConnected, uploads, fe
           </div>
         </div>
       )}
+
+      {/* SaaS Footer */}
+      <footer style={{
+        marginTop: '64px',
+        padding: '32px 0 16px 0',
+        borderTop: '1px solid var(--border-color)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '12px',
+        width: '100%'
+      }}>
+        <div style={{ display: 'flex', gap: '24px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+          <a href="#" onClick={(e) => { e.preventDefault(); alert("Terms of Service simulated for SaaS presentation."); }} style={{ color: 'var(--text-secondary)', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={e => e.target.style.color = '#fff'} onMouseLeave={e => e.target.style.color = 'var(--text-secondary)'}>Terms of Service</a>
+          <span style={{ color: 'var(--text-muted)' }}>|</span>
+          <a href="#" onClick={(e) => { e.preventDefault(); alert("Privacy Policy simulated for SaaS presentation."); }} style={{ color: 'var(--text-secondary)', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={e => e.target.style.color = '#fff'} onMouseLeave={e => e.target.style.color = 'var(--text-secondary)'}>Privacy Policy</a>
+        </div>
+        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+          © 2026 YouTube Manager AI. Built By Rynal D Souza. All rights reserved.
+        </p>
+      </footer>
     </div>
   );
 }

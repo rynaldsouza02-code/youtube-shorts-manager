@@ -119,13 +119,79 @@ Generate exactly 10 scenes. Each scene must be exactly 6 seconds long, so the to
 }
 
 
-// Fetch voice narration using google-tts-api
-export async function generateSpeech(text, filename) {
+// Voice mapper helper based on video style (ElevenLabs)
+function getVoiceForStyle(style, defaultVoiceId) {
+  if (defaultVoiceId && defaultVoiceId !== '21m00Tcm4TlvDq8ikWAM') {
+    return defaultVoiceId; // User has custom voice configured, respect it
+  }
+
+  const s = (style || '').toLowerCase();
+  if (s.includes('suspense') || s.includes('dark') || s.includes('history') || s.includes('space') || s.includes('epic') || s.includes('mysterious')) {
+    return 'pNInz6obpgqjVW4WZ47k'; // Adam (Deep narrative)
+  }
+  if (s.includes('motivational') || s.includes('upbeat') || s.includes('tech')) {
+    return 'ErXwobaYi361TNqc1g2b'; // Antoni (Energetic)
+  }
+  if (s.includes('funny') || s.includes('comedy') || s.includes('humorous')) {
+    return 'EXAVITQu4vr4xnSDxMaL'; // Bella (Upbeat / lively)
+  }
+
+  return defaultVoiceId || '21m00Tcm4TlvDq8ikWAM'; // Rachel (default)
+}
+
+// Gemini prebuilt voice mapping based on style
+function getGeminiVoiceForStyle(style) {
+  const s = (style || '').toLowerCase();
+  if (s.includes('suspense') || s.includes('dark') || s.includes('history') || s.includes('space') || s.includes('epic') || s.includes('mysterious')) {
+    return 'Charon'; // calm, informative, professional
+  }
+  if (s.includes('motivational') || s.includes('upbeat') || s.includes('tech')) {
+    return 'Fenrir'; // passionate and energetic
+  }
+  if (s.includes('funny') || s.includes('comedy') || s.includes('humorous')) {
+    return 'Puck'; // upbeat, lively, energetic
+  }
+  return 'Aoede'; // breezy, relaxed, natural
+}
+
+// Dynamic Speech Generator Router
+export async function generateSpeech(text, filename, style = '') {
+  const settings = getDBKey('settings');
+
+  // Try ElevenLabs first if key is present
+  if (settings.elevenLabsApiKey) {
+    try {
+      const defaultVoiceId = settings.elevenLabsVoiceId || '21m00Tcm4TlvDq8ikWAM';
+      const voiceId = getVoiceForStyle(style, defaultVoiceId);
+      console.log(`[TTS Router] Attempting speech with ElevenLabs (voice: ${voiceId})`);
+      return await generateElevenLabsSpeech(text, filename, voiceId);
+    } catch (err) {
+      console.warn('[TTS Router] ElevenLabs failed:', err.message);
+    }
+  }
+
+  // Fallback 1: Try Gemini API if key is present
+  if (settings.geminiApiKey) {
+    try {
+      const voiceName = getGeminiVoiceForStyle(style);
+      console.log(`[TTS Router] Attempting speech with Gemini (voice: ${voiceName})`);
+      return await generateGeminiSpeech(text, filename, voiceName);
+    } catch (err) {
+      console.warn('[TTS Router] Gemini TTS failed:', err.message);
+    }
+  }
+
+  // Fallback 2: Google Translate TTS (does not throw, has built-in silent fallback)
+  console.log('[TTS Router] Falling back to standard Google Translate TTS');
+  return generateGoogleSpeech(text, filename);
+}
+
+// Google Translate TTS provider
+async function generateGoogleSpeech(text, filename) {
   ensureTempDir();
   const filePath = path.join(TEMP_DIR, `${filename}.mp3`);
   
   try {
-    // Google Translate TTS allows maximum 200 characters
     const getAudioBase64 = googleTTS.getAudioBase64 || googleTTS.default?.getAudioBase64;
     
     if (text.length <= 200) {
@@ -138,7 +204,6 @@ export async function generateSpeech(text, filename) {
       const buffer = Buffer.from(base64, 'base64');
       fs.writeFileSync(filePath, buffer);
     } else {
-      // Split text into smaller chunks and download
       const getAllAudioUrls = googleTTS.getAllAudioUrls || googleTTS.default?.getAllAudioUrls;
       const chunks = getAllAudioUrls(text, {
         lang: 'en',
@@ -154,18 +219,15 @@ export async function generateSpeech(text, filename) {
         buffers.push(Buffer.from(buf));
       }
       
-      // Concatenate the MP3 chunks
       const combinedBuffer = Buffer.concat(buffers);
       fs.writeFileSync(filePath, combinedBuffer);
     }
     
-    // Return relative URL path for the client
     return `/api/temp/${filename}.mp3`;
   } catch (error) {
-    console.warn(`[TTS Warn] Speech generation failed for "${text.slice(0, 30)}...":`, error.message);
+    console.warn(`[TTS Warn] Google Speech generation failed for "${text.slice(0, 30)}...":`, error.message);
     console.log('[TTS Info] Falling back to a silent audio track for this scene.');
     try {
-      // 1-second silent MP3 base64 string
       const silentBase64 = 'SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjEwMC4xMDAA//uQZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaW5mbwAAAA8AAAACAAACQAB1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1//uQZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluaAAAAAwAAAAEAAACQAB1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1';
       fs.writeFileSync(filePath, Buffer.from(silentBase64, 'base64'));
       return `/api/temp/${filename}.mp3`;
@@ -176,8 +238,248 @@ export async function generateSpeech(text, filename) {
   }
 }
 
-// Fetch stock assets (videos/photos) from Pexels API
+// Gemini API (Google AI Studio) TTS provider
+async function generateGeminiSpeech(text, filename, voiceName = 'Aoede') {
+  ensureTempDir();
+  const settings = getDBKey('settings');
+  const apiKey = settings.geminiApiKey;
+  if (!apiKey) {
+    throw new Error('Gemini API key is not configured');
+  }
+
+  const filePath = path.join(TEMP_DIR, `${filename}.mp3`);
+  const models = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+  let lastError = null;
+
+  for (const model of models) {
+    const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`;
+    try {
+      console.log(`[Gemini TTS] Attempting voiceover with model: ${model}, voice: ${voiceName}`);
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: text }] }],
+          generationConfig: {
+            responseModalities: ["AUDIO"],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: {
+                  voiceName: voiceName
+                }
+              }
+            }
+          }
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data) {
+          const audioBase64 = data.candidates[0].content.parts[0].inlineData.data;
+          const mimeType = data.candidates[0].content.parts[0].inlineData.mimeType || 'audio/L16;codec=pcm;rate=24000';
+          const rawPcm = Buffer.from(audioBase64, 'base64');
+          
+          let finalBuffer = rawPcm;
+          
+          // Prepend a WAV header for PCM audio outputs to ensure compatibility downstream
+          if (mimeType.toLowerCase().includes('pcm') || mimeType.toLowerCase().includes('l16')) {
+            console.log('[Gemini TTS] PCM audio detected. Prepending WAV header.');
+            const wavHeader = createWavHeader(rawPcm.length);
+            finalBuffer = Buffer.concat([wavHeader, rawPcm]);
+          }
+          
+          fs.writeFileSync(filePath, finalBuffer);
+          console.log(`[Gemini TTS] Success using model: ${model}`);
+          return `/api/temp/${filename}.mp3`;
+        } else {
+          throw new Error('Response JSON did not contain inlineData audio content.');
+        }
+      } else {
+        const errorText = await response.text();
+        lastError = new Error(`Status ${response.status} - ${errorText}`);
+        console.warn(`[Gemini TTS] Model ${model} failed: ${lastError.message}`);
+      }
+    } catch (err) {
+      lastError = err;
+      console.warn(`[Gemini TTS] Model ${model} fetch failed: ${err.message}`);
+    }
+  }
+
+  throw lastError || new Error('All Gemini TTS models failed');
+}
+
+// Helper to create WAV header for Gemini 24kHz Mono 16-bit PCM output
+function createWavHeader(dataLength, sampleRate = 24000, numChannels = 1, bitsPerSample = 16) {
+  const buffer = Buffer.alloc(44);
+  const byteRate = (sampleRate * numChannels * bitsPerSample) / 8;
+  const blockAlign = (numChannels * bitsPerSample) / 8;
+
+  buffer.write("RIFF", 0);
+  buffer.writeUInt32LE(36 + dataLength, 4); // ChunkSize
+  buffer.write("WAVE", 8);
+  buffer.write("fmt ", 12);
+  buffer.writeUInt32LE(16, 16);             // Subchunk1Size (16 for PCM)
+  buffer.writeUInt16LE(1, 20);              // AudioFormat (1 for PCM)
+  buffer.writeUInt16LE(numChannels, 22);
+  buffer.writeUInt32LE(sampleRate, 24);
+  buffer.writeUInt32LE(byteRate, 28);
+  buffer.writeUInt16LE(blockAlign, 32);
+  buffer.writeUInt16LE(bitsPerSample, 34);
+  buffer.write("data", 36);
+  buffer.writeUInt32LE(dataLength, 40);     // Subchunk2Size
+
+  return buffer;
+}
+
+// ElevenLabs TTS provider
+async function generateElevenLabsSpeech(text, filename, voiceId) {
+  ensureTempDir();
+  const settings = getDBKey('settings');
+  const apiKey = settings.elevenLabsApiKey;
+  const activeVoiceId = voiceId || settings.elevenLabsVoiceId || '21m00Tcm4TlvDq8ikWAM';
+
+  const url = `https://api.elevenlabs.io/v1/text-to-speech/${activeVoiceId}`;
+  const filePath = path.join(TEMP_DIR, `${filename}.mp3`);
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'xi-api-key': apiKey,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      text: text,
+      model_id: 'eleven_monolingual_v1',
+      voice_settings: {
+        stability: 0.5,
+        similarity_boost: 0.75
+      }
+    })
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`ElevenLabs API responded with status ${res.status}: ${errText}`);
+  }
+
+  const arrayBuf = await res.arrayBuffer();
+  fs.writeFileSync(filePath, Buffer.from(arrayBuf));
+  return `/api/temp/${filename}.mp3`;
+}
+
+// Dynamic Stock Asset / Generation Router with Fallback Chain
 export async function searchStockAssets(query, type = 'photo', orientation = 'portrait') {
+  const settings = getDBKey('settings');
+
+  // Step 1: Pexels API
+  if (settings.pexelsApiKey) {
+    const pexelsAssets = await searchPexelsAssets(query, type, orientation);
+    if (pexelsAssets && pexelsAssets.length > 0) {
+      return pexelsAssets;
+    }
+  }
+
+  // Step 2: Unsplash API
+  if (settings.unsplashApiKey) {
+    const unsplashAssets = await searchUnsplashAssets(query, orientation);
+    if (unsplashAssets && unsplashAssets.length > 0) {
+      return unsplashAssets;
+    }
+  }
+
+  // Step 3: Hugging Face AI Generation
+  if (settings.huggingFaceApiKey) {
+    const hfAssets = await generateHuggingFaceAsset(query, orientation);
+    if (hfAssets && hfAssets.length > 0) {
+      return hfAssets;
+    }
+  }
+
+  return [];
+}
+
+// Unsplash photos provider
+async function searchUnsplashAssets(query, orientation = 'portrait') {
+  const settings = getDBKey('settings');
+  const apiKey = settings.unsplashApiKey;
+
+  if (!apiKey) {
+    console.log('Unsplash Access Key missing. Returning empty array.');
+    return [];
+  }
+
+  const url = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&orientation=${orientation}&per_page=5&client_id=${apiKey}`;
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Unsplash responded with status ${res.status}`);
+    const data = await res.json();
+    return data.results.map(p => ({
+      id: p.id,
+      type: 'photo',
+      src: p.urls.regular,
+      photographer: p.user?.name || 'Unsplash Photographer'
+    }));
+  } catch (error) {
+    console.error(`Unsplash search failed for query "${query}":`, error.message);
+    return [];
+  }
+}
+
+// Hugging Face AI image generation provider
+async function generateHuggingFaceAsset(query, orientation = 'portrait') {
+  ensureTempDir();
+  const settings = getDBKey('settings');
+  const apiKey = settings.huggingFaceApiKey;
+
+  if (!apiKey) {
+    console.log('Hugging Face API token missing. Returning empty array.');
+    return [];
+  }
+
+  // Model to use
+  const model = 'black-forest-labs/FLUX.1-schnell';
+  const url = `https://api-inference.huggingface.co/models/${model}`;
+
+  // Formulate prompt with orientation helper
+  const sizeAspect = orientation === 'landscape' ? '16:9 widescreen landscape' : '9:16 vertical mobile portrait';
+  const enhancedPrompt = `${query}, high resolution, professional photography, cinematic lighting, ${sizeAspect}`;
+
+  const filename = `hf_${Date.now()}_${Math.round(Math.random() * 1000)}`;
+  const filePath = path.join(TEMP_DIR, `${filename}.png`);
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ inputs: enhancedPrompt })
+    });
+
+    if (!res.ok) {
+      throw new Error(`Hugging Face API responded with status ${res.status}`);
+    }
+
+    const arrayBuf = await res.arrayBuffer();
+    fs.writeFileSync(filePath, Buffer.from(arrayBuf));
+    return [{
+      id: filename,
+      type: 'photo',
+      src: `/api/temp/${filename}.png`,
+      photographer: 'AI Generated (Hugging Face)'
+    }];
+  } catch (error) {
+    console.error(`Hugging Face image generation failed for query "${query}":`, error.message);
+    return [];
+  }
+}
+
+// Pexels stock photos/videos provider
+async function searchPexelsAssets(query, type = 'photo', orientation = 'portrait') {
   const settings = getDBKey('settings');
   const apiKey = settings.pexelsApiKey;
 
@@ -186,7 +488,6 @@ export async function searchStockAssets(query, type = 'photo', orientation = 'po
     return [];
   }
 
-  // Query landscape or portrait files based on orientation parameter
   const baseUrl = type === 'video' 
     ? `https://api.pexels.com/videos/search?query=${encodeURIComponent(query)}&orientation=${orientation}&per_page=3`
     : `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&orientation=${orientation}&per_page=5`;
@@ -204,7 +505,6 @@ export async function searchStockAssets(query, type = 'photo', orientation = 'po
     
     if (type === 'video') {
       return data.videos.map(v => {
-        // Find best file quality (landscape HD vs portrait SD/HD)
         const bestFile = orientation === 'landscape'
           ? (v.video_files.find(f => f.width >= 1280 && f.width <= 1920) || v.video_files[0])
           : (v.video_files.find(f => f.width >= 540 && f.width <= 1080) || v.video_files[0]);

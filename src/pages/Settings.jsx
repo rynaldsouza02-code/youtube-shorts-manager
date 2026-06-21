@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Key, Youtube, HelpCircle, Save, LogOut, Link2 } from 'lucide-react';
+import { Settings as SettingsIcon, Key, Youtube, HelpCircle, Save, LogOut, Link2, Sparkles, Mail, Send } from 'lucide-react';
 
 export default function Settings({ settings, fetchSettings, isChannelConnected, channelInfo, fetchChannelStatus, addToast }) {
   const [formData, setFormData] = useState({
-    estimatedRPM: 3.0,
-    estimatedCPM: 40.0,
+    estimatedRPMShort: 3.0,
+    estimatedCPMShort: 40.0,
+    estimatedRPMLong: 150.0,
+    estimatedCPMLong: 400.0,
     ...settings
   });
   const [isSaving, setIsSaving] = useState(false);
@@ -13,8 +15,10 @@ export default function Settings({ settings, fetchSettings, isChannelConnected, 
   // Sync state when settings load
   useEffect(() => {
     setFormData({
-      estimatedRPM: 3.0,
-      estimatedCPM: 40.0,
+      estimatedRPMShort: settings?.estimatedRPMShort !== undefined ? settings.estimatedRPMShort : (settings?.estimatedRPM !== undefined ? settings.estimatedRPM : 3.0),
+      estimatedCPMShort: settings?.estimatedCPMShort !== undefined ? settings.estimatedCPMShort : (settings?.estimatedCPM !== undefined ? settings.estimatedCPM : 40.0),
+      estimatedRPMLong: settings?.estimatedRPMLong !== undefined ? settings.estimatedRPMLong : 150.0,
+      estimatedCPMLong: settings?.estimatedCPMLong !== undefined ? settings.estimatedCPMLong : 400.0,
       ...settings
     });
   }, [settings]);
@@ -127,6 +131,42 @@ export default function Settings({ settings, fetchSettings, isChannelConnected, 
     }
   };
 
+  // SMTP Configuration Test
+  const [isTestingMail, setIsTestingMail] = useState(false);
+
+  const handleTestEmail = async () => {
+    if (!formData.smtpHost || !formData.smtpPort || !formData.smtpUser || !formData.smtpPass) {
+      addToast('Please fill in SMTP Host, Port, Username, and Password to run the test.', 'error');
+      return;
+    }
+
+    setIsTestingMail(true);
+    addToast('Sending test email via SMTP...', 'info');
+
+    try {
+      const res = await fetch('/api/settings/test-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+
+      if (!res.ok) {
+        let errMsg = 'Failed to send test email';
+        try {
+          const data = await res.json();
+          errMsg = data.error || errMsg;
+        } catch (e) {}
+        throw new Error(errMsg);
+      }
+
+      addToast('SMTP Test successful! Check your recipient inbox.', 'success');
+    } catch (err) {
+      addToast(`SMTP Test failed: ${err.message}`, 'error');
+    } finally {
+      setIsTestingMail(false);
+    }
+  };
+
   return (
     <div className="tab-fade-in" style={{ maxWidth: '980px', margin: '0 auto' }}>
       {/* Header */}
@@ -230,6 +270,219 @@ export default function Settings({ settings, fetchSettings, isChannelConnected, 
                   className="input-control"
                 />
               </div>
+            </div>
+          </div>
+
+          {/* Section: AI Engine Preferences */}
+          <div className="glass-panel" style={{ padding: '24px', borderLeft: '4px solid var(--color-cyan)', boxShadow: 'var(--shadow-glow-cyan)' }}>
+            <h3 style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1.2rem', fontFamily: 'var(--font-display)' }}>
+              <Sparkles size={18} color="var(--color-cyan)" /> AI Engines & Fallback Media Settings
+            </h3>
+            
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '16px', lineHeight: '1.4' }}>
+              All APIs below work together cooperatively. Visuals will search <strong>Pexels</strong> first, fallback to <strong>Unsplash</strong>, and finally generate custom imagery using <strong>Hugging Face (FLUX)</strong>. 
+              Voiceovers will prioritize <strong>ElevenLabs</strong> (automatically choosing a voice matching the script tone), fallback to <strong>Gemini API (Google AI Studio)</strong>, and finally use <strong>Google Translate TTS</strong>.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label className="form-label">Unsplash Access Key</label>
+                <input 
+                  type="password" 
+                  name="unsplashApiKey"
+                  value={formData.unsplashApiKey || ''}
+                  onChange={handleChange}
+                  placeholder="Paste your Unsplash Access Key"
+                  className="input-control"
+                />
+              </div>
+
+              <div>
+                <label className="form-label">Hugging Face API Token</label>
+                <input 
+                  type="password" 
+                  name="huggingFaceApiKey"
+                  value={formData.huggingFaceApiKey || ''}
+                  onChange={handleChange}
+                  placeholder="Paste your Hugging Face Access Token"
+                  className="input-control"
+                />
+              </div>
+
+              <div>
+                <label className="form-label">ElevenLabs API Key</label>
+                <input 
+                  type="password" 
+                  name="elevenLabsApiKey"
+                  value={formData.elevenLabsApiKey || ''}
+                  onChange={handleChange}
+                  placeholder="Paste your ElevenLabs API Key"
+                  className="input-control"
+                />
+              </div>
+
+              <div>
+                <label className="form-label">ElevenLabs Voice ID (Default)</label>
+                <input 
+                  type="text" 
+                  name="elevenLabsVoiceId"
+                  value={formData.elevenLabsVoiceId || '21m00Tcm4TlvDq8ikWAM'}
+                  onChange={handleChange}
+                  placeholder="e.g. 21m00Tcm4TlvDq8ikWAM (Rachel)"
+                  className="input-control"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Section: SMTP Mail Configuration */}
+          <div className="glass-panel" style={{ padding: '24px', borderLeft: '4px solid var(--color-accent)', boxShadow: 'var(--shadow-glow-purple)' }}>
+            <h3 style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1.2rem', fontFamily: 'var(--font-display)' }}>
+              <Mail size={18} color="var(--color-accent)" /> SMTP Email Notifications
+            </h3>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '8px 0 10px 0' }}>
+                <input 
+                  type="checkbox" 
+                  id="smtpNotificationsEnabled"
+                  name="smtpNotificationsEnabled"
+                  checked={formData.smtpNotificationsEnabled || false}
+                  onChange={(e) => setFormData(prev => ({ ...prev, smtpNotificationsEnabled: e.target.checked }))}
+                  style={{
+                    width: '18px',
+                    height: '18px',
+                    accentColor: 'var(--color-shorts)',
+                    cursor: 'pointer'
+                  }}
+                />
+                <label htmlFor="smtpNotificationsEnabled" style={{ fontSize: '0.95rem', fontWeight: 600, color: '#ffffff', cursor: 'pointer' }}>
+                  Enable Email Notifications
+                </label>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px' }}>
+                <div>
+                  <label className="form-label">SMTP Host</label>
+                  <input 
+                    type="text" 
+                    name="smtpHost"
+                    value={formData.smtpHost || ''}
+                    onChange={handleChange}
+                    placeholder="e.g. smtp.gmail.com"
+                    className="input-control"
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Port</label>
+                  <input 
+                    type="text" 
+                    name="smtpPort"
+                    value={formData.smtpPort || '587'}
+                    onChange={handleChange}
+                    placeholder="587"
+                    className="input-control"
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '4px 0' }}>
+                <input 
+                  type="checkbox" 
+                  id="smtpSecure"
+                  name="smtpSecure"
+                  checked={formData.smtpSecure || false}
+                  onChange={(e) => setFormData(prev => ({ ...prev, smtpSecure: e.target.checked }))}
+                  style={{
+                    width: '16px',
+                    height: '16px',
+                    accentColor: 'var(--color-cyan)',
+                    cursor: 'pointer'
+                  }}
+                />
+                <label htmlFor="smtpSecure" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                  Secure Connection (SSL/TLS - Port 465)
+                </label>
+              </div>
+
+              <div>
+                <label className="form-label">SMTP Username / Auth Email</label>
+                <input 
+                  type="text" 
+                  name="smtpUser"
+                  value={formData.smtpUser || ''}
+                  onChange={handleChange}
+                  placeholder="e.g. yourname@gmail.com"
+                  className="input-control"
+                />
+              </div>
+
+              <div>
+                <label className="form-label">SMTP Password / App Password</label>
+                <input 
+                  type="password" 
+                  name="smtpPass"
+                  value={formData.smtpPass || ''}
+                  onChange={handleChange}
+                  placeholder="SMTP server password"
+                  className="input-control"
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div>
+                  <label className="form-label">Sender Email (From)</label>
+                  <input 
+                    type="email" 
+                    name="smtpSender"
+                    value={formData.smtpSender || ''}
+                    onChange={handleChange}
+                    placeholder="sender@gmail.com"
+                    className="input-control"
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Recipient Email (To)</label>
+                  <input 
+                    type="email" 
+                    name="smtpRecipient"
+                    value={formData.smtpRecipient || ''}
+                    onChange={handleChange}
+                    placeholder="recipient@gmail.com"
+                    className="input-control"
+                  />
+                </div>
+              </div>
+
+              <button 
+                type="button"
+                onClick={handleTestEmail}
+                className="btn btn-secondary"
+                disabled={isTestingMail}
+                style={{ 
+                  marginTop: '8px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  gap: '8px', 
+                  border: '1px solid rgba(139, 92, 246, 0.4)',
+                  color: 'var(--color-accent)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(139, 92, 246, 0.08)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                }}
+              >
+                {isTestingMail ? (
+                  <span className="spinner"></span>
+                ) : (
+                  <>
+                    <Send size={16} /> Test SMTP Connection
+                  </>
+                )}
+              </button>
             </div>
           </div>
 
@@ -391,49 +644,84 @@ export default function Settings({ settings, fetchSettings, isChannelConnected, 
             </h3>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div>
-                <label className="form-label">Estimated Shorts RPM (₹ per 1,000 views)</label>
-                <input 
-                  type="number" 
-                  name="estimatedRPM"
-                  step="0.01"
-                  min="0.01"
-                  max="100.0"
-                  value={formData.estimatedRPM !== undefined ? formData.estimatedRPM : 3.0}
-                  onChange={handleChange}
-                  placeholder="e.g. 3.00"
-                  className="input-control"
-                  required
-                />
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '4px', display: 'block' }}>
-                  Shorts Revenue Per Mille (RPM) in India is typically between ₹0.80 and ₹5.00 per 1,000 views.
-                </span>
+              {/* Shorts Settings */}
+              <div style={{ borderBottom: '1px solid var(--border-color)', pb: '14px', marginBottom: '6px' }}>
+                <h4 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-shorts)', marginBottom: '12px' }}>Shorts Payout Options</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div>
+                    <label className="form-label" style={{ fontSize: '0.8rem' }}>Estimated Shorts RPM (₹ per 1,000 views)</label>
+                    <input 
+                      type="number" 
+                      name="estimatedRPMShort"
+                      step="0.01"
+                      min="0.01"
+                      max="100.0"
+                      value={formData.estimatedRPMShort !== undefined ? formData.estimatedRPMShort : 3.0}
+                      onChange={handleChange}
+                      placeholder="e.g. 3.00"
+                      className="input-control"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label" style={{ fontSize: '0.8rem' }}>Estimated Shorts CPM (₹ per 1,000 impressions)</label>
+                    <input 
+                      type="number" 
+                      name="estimatedCPMShort"
+                      step="0.1"
+                      min="0.1"
+                      value={formData.estimatedCPMShort !== undefined ? formData.estimatedCPMShort : 40.0}
+                      onChange={handleChange}
+                      placeholder="e.g. 40.00"
+                      className="input-control"
+                      required
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <label className="form-label">Estimated Ad CPM (₹ per 1,000 impressions)</label>
-                <input 
-                  type="number" 
-                  name="estimatedCPM"
-                  step="0.1"
-                  min="0.1"
-                  value={formData.estimatedCPM !== undefined ? formData.estimatedCPM : 40.0}
-                  onChange={handleChange}
-                  placeholder="e.g. 40.00"
-                  className="input-control"
-                  required
-                />
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '4px', display: 'block' }}>
-                  Shorts CPM is the cost per 1,000 impressions, usually around ₹15.00 – ₹120.00.
-                </span>
+              {/* Long Video Settings */}
+              <div style={{ marginBottom: '10px' }}>
+                <h4 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-success)', marginBottom: '12px' }}>Long Widescreen Video Payout Options</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div>
+                    <label className="form-label" style={{ fontSize: '0.8rem' }}>Estimated Long RPM (₹ per 1,000 views)</label>
+                    <input 
+                      type="number" 
+                      name="estimatedRPMLong"
+                      step="0.1"
+                      min="0.1"
+                      max="5000.0"
+                      value={formData.estimatedRPMLong !== undefined ? formData.estimatedRPMLong : 150.0}
+                      onChange={handleChange}
+                      placeholder="e.g. 150.00"
+                      className="input-control-success"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label" style={{ fontSize: '0.8rem' }}>Estimated Long CPM (₹ per 1,000 impressions)</label>
+                    <input 
+                      type="number" 
+                      name="estimatedCPMLong"
+                      step="1"
+                      min="1"
+                      value={formData.estimatedCPMLong !== undefined ? formData.estimatedCPMLong : 400.0}
+                      onChange={handleChange}
+                      placeholder="e.g. 400.00"
+                      className="input-control-success"
+                      required
+                    />
+                  </div>
+                </div>
               </div>
               
               <button 
                 type="button"
                 onClick={handleSaveSettings}
-                className="btn btn-primary"
+                className="btn btn-success"
                 disabled={isSaving}
-                style={{ width: '100%', display: 'flex', gap: '8px', height: '42px', marginTop: '10px', backgroundColor: 'var(--color-success)' }}
+                style={{ width: '100%', display: 'flex', gap: '8px', height: '42px', marginTop: '10px' }}
               >
                 {isSaving ? (
                   <span className="spinner"></span>

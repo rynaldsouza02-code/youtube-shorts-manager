@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Video, Calendar, Settings, Youtube, CheckCircle2, AlertTriangle, Tv } from 'lucide-react';
+import { LayoutDashboard, Video, Calendar, Settings, Youtube, CheckCircle2, AlertTriangle, Tv, Mail } from 'lucide-react';
 
 export default function Sidebar({ currentPage, setCurrentPage, channelInfo, isChannelConnected }) {
   const menuItems = [
@@ -7,6 +7,7 @@ export default function Sidebar({ currentPage, setCurrentPage, channelInfo, isCh
     { id: 'creator', label: 'Create Short', icon: Video },
     { id: 'longCreator', label: 'Long Creator', icon: Tv },
     { id: 'scheduler', label: 'Autopilot', icon: Calendar },
+    { id: 'emailLogs', label: 'Email Log', icon: Mail },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
@@ -56,9 +57,19 @@ export default function Sidebar({ currentPage, setCurrentPage, channelInfo, isCh
           {menuItems.map(item => {
             const Icon = item.icon;
             const isActive = currentPage === item.id;
-            const activeColor = item.id === 'longCreator' ? 'var(--color-success)' : 'var(--color-shorts)';
-            const activeBg = item.id === 'longCreator' ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255, 46, 85, 0.08)';
-            const activeShadow = item.id === 'longCreator' ? '0 4px 12px rgba(16, 185, 129, 0.05)' : '0 4px 12px rgba(255, 46, 85, 0.05)';
+            let activeColor = 'var(--color-shorts)';
+            let activeBg = 'rgba(255, 46, 85, 0.08)';
+            let activeShadow = '0 4px 12px rgba(255, 46, 85, 0.05)';
+
+            if (item.id === 'longCreator') {
+              activeColor = 'var(--color-success)';
+              activeBg = 'rgba(16, 185, 129, 0.08)';
+              activeShadow = '0 4px 12px rgba(16, 185, 129, 0.05)';
+            } else if (item.id === 'emailLogs') {
+              activeColor = 'var(--color-accent)';
+              activeBg = 'rgba(139, 92, 246, 0.08)';
+              activeShadow = '0 4px 12px rgba(139, 92, 246, 0.05)';
+            }
 
             return (
               <button
@@ -89,7 +100,10 @@ export default function Sidebar({ currentPage, setCurrentPage, channelInfo, isCh
                   if (!isActive) {
                     e.currentTarget.style.color = '#ffffff';
                     e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)';
-                    e.currentTarget.style.borderLeft = `4px solid ${item.id === 'longCreator' ? 'var(--color-success)' : 'rgba(255, 255, 255, 0.15)'}`;
+                    let hoverBorderColor = 'rgba(255, 255, 255, 0.15)';
+                    if (item.id === 'longCreator') hoverBorderColor = 'var(--color-success)';
+                    else if (item.id === 'emailLogs') hoverBorderColor = 'var(--color-accent)';
+                    e.currentTarget.style.borderLeft = `4px solid ${hoverBorderColor}`;
                   }
                 }}
                 onMouseLeave={(e) => {
@@ -252,10 +266,13 @@ export default function Sidebar({ currentPage, setCurrentPage, channelInfo, isCh
               style={isActive && item.id === 'longCreator' ? {
                 color: '#ffffff',
                 background: 'rgba(16, 185, 129, 0.08)'
+              } : isActive && item.id === 'emailLogs' ? {
+                color: '#ffffff',
+                background: 'rgba(139, 92, 246, 0.08)'
               } : {}}
             >
               <Icon size={20} style={isActive ? {
-                color: item.id === 'longCreator' ? 'var(--color-success)' : 'var(--color-shorts)'
+                color: item.id === 'longCreator' ? 'var(--color-success)' : item.id === 'emailLogs' ? 'var(--color-accent)' : 'var(--color-shorts)'
               } : {}} />
               <span>{item.label}</span>
             </button>

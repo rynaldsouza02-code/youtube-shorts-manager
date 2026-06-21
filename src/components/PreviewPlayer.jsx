@@ -16,15 +16,17 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
   const audioCtxRef = useRef(null);
   const audioDestRef = useRef(null);
   
-  const speechAudioRef = useRef(null);
+  const speechAudiosRef = useRef([]); // Pre-instantiated Audio elements
   const musicAudioRef = useRef(null);
+  const musicAudioPreviewRef = useRef(null);
   
   const animationFrameIdRef = useRef(null);
   const isPlayingRef = useRef(false);
   const currentSceneIdxRef = useRef(0);
   
   // Track timing
-  const sceneStartTimeRef = useRef(0);
+  const sceneStartTimeRef = useRef(null);
+  const sceneBufferStartTimeRef = useRef(0);
   const accumulatedTimeRef = useRef(0);
 
   // Preloaded audio assets
@@ -67,6 +69,16 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
       }
     });
     imageElementsRef.current = [];
+
+    // Pause and clear previous preloaded audio elements
+    speechAudiosRef.current.forEach(el => {
+      if (el) {
+        el.pause();
+        el.src = '';
+        el.load();
+      }
+    });
+    speechAudiosRef.current = [];
 
     // Revoke previous Object URLs to prevent memory leaks
     audioObjectUrlsRef.current.forEach(url => {
@@ -154,6 +166,7 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
               const objectUrl = URL.createObjectURL(blob);
               
               const tempAudio = new Audio(objectUrl);
+              tempAudio.crossOrigin = 'anonymous';
               const duration = await new Promise((resolve) => {
                 tempAudio.onloadedmetadata = () => {
                   resolve(tempAudio.duration);
@@ -168,18 +181,24 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
               if (active) {
                 audioObjectUrlsRef.current[index] = objectUrl;
                 audioDurationsRef.current[index] = duration || scene.duration || 6;
+                speechAudiosRef.current[index] = tempAudio;
               }
             } catch (err) {
               console.warn(`Failed to preload audio for scene ${index + 1}:`, err.message);
+              
+              const tempAudio = new Audio(scene.audioUrl);
+              tempAudio.crossOrigin = 'anonymous';
               if (active) {
                 audioObjectUrlsRef.current[index] = scene.audioUrl;
                 audioDurationsRef.current[index] = scene.duration || 6;
+                speechAudiosRef.current[index] = tempAudio;
               }
             }
           } else {
             if (active) {
               audioObjectUrlsRef.current[index] = null;
               audioDurationsRef.current[index] = scene.duration || 6;
+              speechAudiosRef.current[index] = null;
             }
           }
         });
@@ -209,12 +228,39 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
           el.load();
         }
       });
+      // Pause and clear preloaded audio elements
+      speechAudiosRef.current.forEach(el => {
+        if (el) {
+          el.pause();
+          el.src = '';
+          el.load();
+        }
+      });
       // Revoke created Object URLs on cleanup
       audioObjectUrlsRef.current.forEach(url => {
         if (url && url.startsWith('blob:')) {
           URL.revokeObjectURL(url);
         }
       });
+
+      // Clean up Audio Context to avoid browser resource locks and ensure new speech sources bind correctly next time
+      if (audioCtxRef.current) {
+        try {
+          audioCtxRef.current.close();
+        } catch (e) {
+          console.warn('[Web Audio Cleanup] Failed to close AudioContext:', e.message);
+        }
+        audioCtxRef.current = null;
+        audioDestRef.current = null;
+        musicAudioRef.current = null;
+      }
+
+      if (musicAudioPreviewRef.current) {
+        try {
+          musicAudioPreviewRef.current.pause();
+        } catch (e) {}
+        musicAudioPreviewRef.current = null;
+      }
     };
   }, [scenes, aspectRatio]);
 
@@ -260,7 +306,6 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
         el.pause();
         if (idx === index) {
           el.currentTime = 0;
-          el.play().catch(e => console.log('Video play blocked:', e.message));
         }
       }
     });
@@ -278,48 +323,65 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
     const dest = audioCtx.createMediaStreamDestination();
     audioDestRef.current = dest;
 
-    // Create Speech element node
-    const speech = new Audio();
-    speech.crossOrigin = 'anonymous';
-    const speechSource = audioCtx.createMediaElementSource(speech);
-    speechSource.connect(audioCtx.destination);
-    speechSource.connect(dest);
-    speechAudioRef.current = speech;
+    // Pre-connect all preloaded speech audio elements to the destination and audio context destination
+    speechAudiosRef.current.forEach((audioEl) => {
+      if (audioEl) {
+        try {
+          const speechSource = audioCtx.createMediaElementSource(audioEl);
+          speechSource.connect(audioCtx.destination);
+          speechSource.connect(dest);
+        } catch (e) {
+          console.warn('[Web Audio Sync] Speech source connection failed or already connected:', e.message);
+        }
+      }
+    });
 
     // Create Music element node
     const music = new Audio();
     music.crossOrigin = 'anonymous';
     music.loop = true;
-    const musicSource = audioCtx.createMediaElementSource(music);
     
-    // Add Volume Gain Node to keep background music low
-    const musicGain = audioCtx.createGain();
-    musicGain.gain.value = 0.08; // 8% volume
+    try {
+      const musicSource = audioCtx.createMediaElementSource(music);
+      
+      // Add Volume Gain Node to keep background music low
+      const musicGain = audioCtx.createGain();
+      musicGain.gain.value = 0.08; // 8% volume
 
-    musicSource.connect(musicGain);
-    musicGain.connect(audioCtx.destination);
-    musicGain.connect(dest);
+      musicSource.connect(musicGain);
+      musicGain.connect(audioCtx.destination);
+      musicGain.connect(dest);
+    } catch (e) {
+      console.warn('[Web Audio Sync] Music source connection failed:', e.message);
+    }
+    
     musicAudioRef.current = music;
   };
 
-  const startPlayback = async () => {
-    initAudio();
-    if (audioCtxRef.current.state === 'suspended') {
-      await audioCtxRef.current.resume();
+  const playPreviewMusic = () => {
+    if (!musicAudioPreviewRef.current) {
+      musicAudioPreviewRef.current = new Audio();
+      musicAudioPreviewRef.current.crossOrigin = 'anonymous';
+      musicAudioPreviewRef.current.loop = true;
+      musicAudioPreviewRef.current.volume = 0.08; // 8% volume
     }
+    const genre = musicGenre || 'cinematic';
+    musicAudioPreviewRef.current.src = musicTracks[genre];
+    musicAudioPreviewRef.current.currentTime = 0;
+    musicAudioPreviewRef.current.play().catch(e => console.log('Music blocked:', e.message));
+  };
 
+  const startPlayback = async () => {
     isPlayingRef.current = true;
     setIsPlaying(true);
-    sceneStartTimeRef.current = Date.now();
+    sceneStartTimeRef.current = null;
+    sceneBufferStartTimeRef.current = Date.now();
     accumulatedTimeRef.current = 0;
     currentSceneIdxRef.current = 0;
     setCurrentSceneIdx(0);
 
-    // Play background music
-    const genre = musicGenre || 'cinematic';
-    musicAudioRef.current.src = musicTracks[genre];
-    musicAudioRef.current.currentTime = 0;
-    musicAudioRef.current.play().catch(e => console.log('Music blocked:', e.message));
+    // Play preview background music directly without Web Audio routing for native stability
+    playPreviewMusic();
 
     playSceneAudio(0);
     playSceneAsset(0);
@@ -327,10 +389,10 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
   };
 
   const playSceneAudio = (index) => {
-    if (index >= scenes.length || !speechAudioRef.current) return;
-    speechAudioRef.current.src = audioObjectUrlsRef.current[index] || scenes[index].audioUrl;
-    speechAudioRef.current.currentTime = 0;
-    speechAudioRef.current.play().catch(e => console.log('Speech blocked:', e.message));
+    const audioEl = speechAudiosRef.current[index];
+    if (!audioEl) return;
+    audioEl.currentTime = 0;
+    audioEl.play().catch(e => console.log('Speech blocked:', e.message));
   };
 
   const stopPlayback = () => {
@@ -339,9 +401,9 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
     if (animationFrameIdRef.current) {
       cancelAnimationFrame(animationFrameIdRef.current);
     }
-    if (speechAudioRef.current) {
-      speechAudioRef.current.pause();
-    }
+    speechAudiosRef.current.forEach(audioEl => {
+      if (audioEl) audioEl.pause();
+    });
     if (musicAudioRef.current) {
       musicAudioRef.current.pause();
     }
@@ -369,16 +431,15 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     
-    const elapsedSinceSceneStart = Date.now() - sceneStartTimeRef.current;
+    const elapsedSinceBufferStart = Date.now() - sceneBufferStartTimeRef.current;
     const sceneDuration = getSceneDuration(currentSceneIdxRef.current);
 
-    const hasAudioTrack = !!(audioObjectUrlsRef.current[currentSceneIdxRef.current] || scenes[currentSceneIdxRef.current]?.audioUrl);
-    const hasAudio = hasAudioTrack && speechAudioRef.current;
+    const activeAudio = speechAudiosRef.current[currentSceneIdxRef.current];
+    const hasAudio = !!activeAudio;
     
     let isAudioPlaying = false;
     if (hasAudio) {
-      const audioEl = speechAudioRef.current;
-      if (audioEl.src && !audioEl.paused && !isNaN(audioEl.duration) && audioEl.currentTime > 0) {
+      if (activeAudio.src && !activeAudio.paused && !isNaN(activeAudio.duration) && activeAudio.currentTime > 0) {
         isAudioPlaying = true;
       }
     }
@@ -388,20 +449,42 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
 
     if (hasAudio) {
       if (isAudioPlaying) {
-        const audioEl = speechAudioRef.current;
-        currentSceneProgress = Math.min(audioEl.currentTime / audioEl.duration, 1);
-        isSceneFinished = audioEl.ended || (audioEl.currentTime >= audioEl.duration - 0.05);
+        if (!sceneStartTimeRef.current) {
+          sceneStartTimeRef.current = Date.now();
+        }
+        const elapsed = Date.now() - sceneStartTimeRef.current;
+        currentSceneProgress = Math.min(elapsed / sceneDuration, 1);
+        isSceneFinished = elapsed >= sceneDuration;
       } else {
         currentSceneProgress = 0;
-        if (elapsedSinceSceneStart > 4000) {
+        if (elapsedSinceBufferStart > 3500) {
           isSceneFinished = true;
         } else {
           isSceneFinished = false;
         }
       }
     } else {
-      currentSceneProgress = Math.min(elapsedSinceSceneStart / sceneDuration, 1);
-      isSceneFinished = elapsedSinceSceneStart >= sceneDuration;
+      if (!sceneStartTimeRef.current) {
+        sceneStartTimeRef.current = Date.now();
+      }
+      const elapsed = Date.now() - sceneStartTimeRef.current;
+      currentSceneProgress = Math.min(elapsed / sceneDuration, 1);
+      isSceneFinished = elapsed >= sceneDuration;
+    }
+
+    // Sync background video element playback with audio state
+    const img = imageElementsRef.current[currentSceneIdxRef.current];
+    const isVideo = img && img.tagName === 'VIDEO';
+    if (isVideo) {
+      if (isAudioPlaying || !hasAudio) {
+        if (img.paused) {
+          img.play().catch(e => console.log('Video play blocked in tick:', e.message));
+        }
+      } else {
+        if (!img.paused) {
+          img.pause();
+        }
+      }
     }
 
     // Check if current scene has finished
@@ -417,7 +500,8 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
       } else {
         // Next Scene
         setCurrentSceneIdx(currentSceneIdxRef.current);
-        sceneStartTimeRef.current = Date.now();
+        sceneStartTimeRef.current = null;
+        sceneBufferStartTimeRef.current = Date.now();
         playSceneAudio(currentSceneIdxRef.current);
         playSceneAsset(currentSceneIdxRef.current);
       }
@@ -592,18 +676,19 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
       const genre = musicGenre || 'cinematic';
       musicAudioRef.current.src = musicTracks[genre];
       musicAudioRef.current.currentTime = 0;
-      
-      // Load first scene voice narration Object URL
-      speechAudioRef.current.src = audioObjectUrlsRef.current[0] || scenes[0].audioUrl;
-      speechAudioRef.current.currentTime = 0;
 
-      // Wait for speech and background music audio elements to buffer (readyState >= 2)
+      // Wait for background music and first scene speech audio elements to buffer (readyState >= 2)
+      const firstAudio = speechAudiosRef.current[0];
       await Promise.all([
         new Promise((resolve) => {
-          if (speechAudioRef.current.readyState >= 2) resolve();
-          else {
-            speechAudioRef.current.oncanplay = resolve;
-            setTimeout(resolve, 2000); // Safety fallback
+          if (firstAudio) {
+            if (firstAudio.readyState >= 2) resolve();
+            else {
+              firstAudio.oncanplay = resolve;
+              setTimeout(resolve, 2000); // Safety fallback
+            }
+          } else {
+            resolve();
           }
         }),
         new Promise((resolve) => {
@@ -657,7 +742,8 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
 
       // Set up variables for manual render loop
       let currentSceneIndex = 0;
-      let sceneStartTime = Date.now();
+      let sceneStartTime = null;
+      let sceneBufferStartTime = Date.now();
       let accumulatedTime = 0;
       
       // Start recording media inputs
@@ -665,7 +751,9 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
 
       // Start audio playback
       musicAudioRef.current.play().catch(e => console.log('Compile Audio block:', e));
-      speechAudioRef.current.play().catch(e => console.log('Compile speech block:', e));
+      if (firstAudio) {
+        firstAudio.play().catch(e => console.log('Compile speech block:', e));
+      }
       playSceneAsset(0);
 
       setCompileStatus('Compiling video tracks...');
@@ -673,16 +761,15 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
       // Precise interval loop for capturing frames (30 FPS)
       const intervalMs = 1000 / 30;
       const compileTimer = setInterval(() => {
-        const elapsedSinceScene = Date.now() - sceneStartTime;
+        const elapsedSinceBuffer = Date.now() - sceneBufferStartTime;
         const sceneDuration = getSceneDuration(currentSceneIndex);
 
-        const hasAudioTrack = !!(audioObjectUrlsRef.current[currentSceneIndex] || scenes[currentSceneIndex]?.audioUrl);
-        const hasAudio = hasAudioTrack && speechAudioRef.current;
+        const activeSpeechAudio = speechAudiosRef.current[currentSceneIndex];
+        const hasAudio = !!activeSpeechAudio;
 
         let isAudioPlaying = false;
         if (hasAudio) {
-          const audioEl = speechAudioRef.current;
-          if (audioEl.src && !audioEl.paused && !isNaN(audioEl.duration) && audioEl.currentTime > 0) {
+          if (activeSpeechAudio.src && !activeSpeechAudio.paused && !isNaN(activeSpeechAudio.duration) && activeSpeechAudio.currentTime > 0) {
             isAudioPlaying = true;
           }
         }
@@ -692,20 +779,41 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
 
         if (hasAudio) {
           if (isAudioPlaying) {
-            const audioEl = speechAudioRef.current;
-            sceneProgress = Math.min(audioEl.currentTime / audioEl.duration, 1);
-            isSceneFinished = audioEl.ended || (audioEl.currentTime >= audioEl.duration - 0.05);
+            if (!sceneStartTime) {
+              sceneStartTime = Date.now();
+            }
+            sceneProgress = Math.min(activeSpeechAudio.currentTime / activeSpeechAudio.duration, 1);
+            isSceneFinished = activeSpeechAudio.ended || (activeSpeechAudio.currentTime >= activeSpeechAudio.duration - 0.05);
           } else {
             sceneProgress = 0;
-            if (elapsedSinceScene > 4000) {
+            if (elapsedSinceBuffer > 3500) {
               isSceneFinished = true;
             } else {
               isSceneFinished = false;
             }
           }
         } else {
-          sceneProgress = Math.min(elapsedSinceScene / sceneDuration, 1);
-          isSceneFinished = elapsedSinceScene >= sceneDuration;
+          if (!sceneStartTime) {
+            sceneStartTime = Date.now();
+          }
+          const elapsed = Date.now() - sceneStartTime;
+          sceneProgress = Math.min(elapsed / sceneDuration, 1);
+          isSceneFinished = elapsed >= sceneDuration;
+        }
+
+        // Sync background video element playback with audio state during compilation
+        const img = imageElementsRef.current[currentSceneIndex];
+        const isVideo = img && img.tagName === 'VIDEO';
+        if (isVideo) {
+          if (isAudioPlaying || !hasAudio) {
+            if (img.paused) {
+              img.play().catch(e => console.log('Video compile play blocked:', e.message));
+            }
+          } else {
+            if (!img.paused) {
+              img.pause();
+            }
+          }
         }
 
         if (isSceneFinished) {
@@ -715,7 +823,9 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
           if (currentSceneIndex >= scenes.length) {
             // End compilation
             clearInterval(compileTimer);
-            speechAudioRef.current.pause();
+            speechAudiosRef.current.forEach(audioEl => {
+              if (audioEl) audioEl.pause();
+            });
             musicAudioRef.current.pause();
             imageElementsRef.current.forEach(el => {
               if (el && el.tagName === 'VIDEO') el.pause();
@@ -724,10 +834,13 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
             return;
           } else {
             // Next scene
-            sceneStartTime = Date.now();
-            speechAudioRef.current.src = audioObjectUrlsRef.current[currentSceneIndex] || scenes[currentSceneIndex].audioUrl;
-            speechAudioRef.current.currentTime = 0;
-            speechAudioRef.current.play().catch(e => console.log(e));
+            sceneStartTime = null;
+            sceneBufferStartTime = Date.now();
+            const nextAudio = speechAudiosRef.current[currentSceneIndex];
+            if (nextAudio) {
+              nextAudio.currentTime = 0;
+              nextAudio.play().catch(e => console.log(e));
+            }
             playSceneAsset(currentSceneIndex);
           }
         }
@@ -973,13 +1086,14 @@ export default function PreviewPlayer({ scenes, musicGenre, onCompileComplete, o
 
         <button 
           onClick={handleCompileShort} 
-          className="btn btn-primary"
+          className="btn btn-success"
           disabled={isCompiling || isPlaying || !assetsLoaded}
-          style={{ flex: 1.2, height: '44px', gap: '6px', backgroundColor: 'var(--color-success)' }}
+          style={{ flex: 1.2, height: '44px', gap: '6px' }}
         >
           <Film size={18} /> Compile Video File
         </button>
       </div>
+
 
       {/* Compile Progress Overlay Panel */}
       {isCompiling && (

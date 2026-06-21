@@ -3,14 +3,22 @@ import fs from 'fs';
 import { getDBKey, updateDBKey } from './db.js';
 
 // Dynamically generate OAuth2 client using settings stored in the database
-export function getOAuth2Client() {
+export function getOAuth2Client(req) {
   const settings = getDBKey('settings');
   
   if (!settings || !settings.youtubeClientId || !settings.youtubeClientSecret) {
     throw new Error('Google OAuth Client ID and Client Secret are not configured in Settings.');
   }
 
-  const redirectUri = process.env.REDIRECT_URI || 'http://localhost:3001/auth/youtube/callback';
+  let redirectUri = process.env.REDIRECT_URI;
+  if (!redirectUri && req) {
+    const protocol = req.secure || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
+    const host = req.headers.host;
+    redirectUri = `${protocol}://${host}/auth/youtube/callback`;
+  }
+  if (!redirectUri) {
+    redirectUri = 'http://localhost:3001/auth/youtube/callback';
+  }
 
   // We redirect back to our local Express redirect handler
   return new google.auth.OAuth2(
@@ -21,8 +29,8 @@ export function getOAuth2Client() {
 }
 
 // Generate the authentication URL
-export function getAuthUrl() {
-  const oauth2Client = getOAuth2Client();
+export function getAuthUrl(req) {
+  const oauth2Client = getOAuth2Client(req);
   const scopes = [
     'https://www.googleapis.com/auth/youtube.upload',
     'https://www.googleapis.com/auth/youtube.readonly'
@@ -36,8 +44,8 @@ export function getAuthUrl() {
 }
 
 // Exchange auth code for tokens
-export async function saveAuthTokens(code) {
-  const oauth2Client = getOAuth2Client();
+export async function saveAuthTokens(code, req) {
+  const oauth2Client = getOAuth2Client(req);
   const { tokens } = await oauth2Client.getToken(code);
   
   // Save tokens in database
@@ -46,8 +54,8 @@ export async function saveAuthTokens(code) {
 }
 
 // Get authenticated client ready for requests
-export async function getAuthenticatedClient() {
-  const oauth2Client = getOAuth2Client();
+export async function getAuthenticatedClient(req) {
+  const oauth2Client = getOAuth2Client(req);
   const tokens = getDBKey('tokens');
 
   if (!tokens) {
@@ -70,9 +78,9 @@ export async function getAuthenticatedClient() {
 }
 
 // Get Channel Name, Subscriber Count and Avatar
-export async function getChannelDetails() {
+export async function getChannelDetails(req) {
   try {
-    const authClient = await getAuthenticatedClient();
+    const authClient = await getAuthenticatedClient(req);
     const youtube = google.youtube({ version: 'v3', auth: authClient });
 
     const response = await youtube.channels.list({
@@ -101,9 +109,9 @@ export async function getChannelDetails() {
 }
 
 // Upload a video file to YouTube
-export async function uploadShortVideo(filePath, metadata) {
+export async function uploadShortVideo(filePath, metadata, req) {
   try {
-    const authClient = await getAuthenticatedClient();
+    const authClient = await getAuthenticatedClient(req);
     const youtube = google.youtube({ version: 'v3', auth: authClient });
 
     if (!fs.existsSync(filePath)) {
@@ -112,7 +120,8 @@ export async function uploadShortVideo(filePath, metadata) {
 
     // Standardize title for Shorts (make sure #shorts is included)
     let title = metadata.title || 'AI Generated Short';
-    if (!title.toLowerCase().includes('#shorts')) {
+    const isLong = metadata.format === 'long';
+    if (!isLong && !title.toLowerCase().includes('#shorts')) {
       title = `${title.slice(0, 80)} #shorts`; // ensure fits title limit (100)
     }
 
@@ -125,7 +134,7 @@ export async function uploadShortVideo(filePath, metadata) {
         snippet: {
           title: title,
           description: metadata.description || 'Uploaded via YouTube Manager!',
-          tags: metadata.tags ? metadata.tags.split(',').map(t => t.trim()) : ['shorts', 'ai'],
+          tags: metadata.tags ? metadata.tags.split(',').map(t => t.trim()) : (isLong ? ['ai', 'documentary'] : ['shorts', 'ai']),
           categoryId: metadata.categoryId || '22', // default People & Blogs
           defaultLanguage: 'en'
         },
@@ -148,7 +157,9 @@ export async function uploadShortVideo(filePath, metadata) {
     console.log('Video uploaded successfully! Video ID:', response.data.id);
     return {
       videoId: response.data.id,
-      youtubeUrl: `https://youtube.com/shorts/${response.data.id}`,
+      youtubeUrl: isLong
+        ? `https://youtube.com/watch?v=${response.data.id}`
+        : `https://youtube.com/shorts/${response.data.id}`,
       title: response.data.snippet.title,
       status: 'completed'
     };
@@ -159,9 +170,9 @@ export async function uploadShortVideo(filePath, metadata) {
 }
 
 // Fetch latest uploaded videos directly from the YouTube channel
-export async function getLatestVideos() {
+export async function getLatestVideos(req) {
   try {
-    const authClient = await getAuthenticatedClient();
+    const authClient = await getAuthenticatedClient(req);
     const youtube = google.youtube({ version: 'v3', auth: authClient });
 
     // 1. Get contentDetails to find the uploaded videos playlist ID
@@ -208,17 +219,20 @@ export async function getLatestVideos() {
     return items.map(item => {
       const videoId = item.snippet.resourceId.videoId;
       const details = videoDetailsMap[videoId];
+      const videoTitle = item.snippet?.title || details?.snippet?.title || 'YouTube Short';
+      const isShort = videoTitle.toLowerCase().includes('#shorts');
       return {
         id: videoId,
         videoId: videoId,
-        title: item.snippet?.title || details?.snippet?.title || 'YouTube Short',
+        title: videoTitle,
         description: item.snippet?.description || '',
         publishedAt: item.snippet?.publishedAt || details?.snippet?.publishedAt || new Date().toISOString(),
         thumbnail: item.snippet?.thumbnails?.medium?.url || item.snippet?.thumbnails?.default?.url || '',
         views: details ? parseInt(details.statistics?.viewCount || 0) : 0,
         likes: details ? parseInt(details.statistics?.likeCount || 0) : 0,
         comments: details ? parseInt(details.statistics?.commentCount || 0) : 0,
-        youtubeUrl: `https://youtube.com/shorts/${videoId}`,
+        youtubeUrl: isShort ? `https://youtube.com/shorts/${videoId}` : `https://youtube.com/watch?v=${videoId}`,
+        format: isShort ? 'short' : 'long',
         status: details?.status?.privacyStatus || 'public'
       };
     });

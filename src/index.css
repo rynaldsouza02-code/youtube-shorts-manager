@@ -5,14 +5,14 @@
   --font-display: 'Outfit', system-ui, sans-serif;
 
   /* Premium Cyberpunk & Dark SaaS Theme */
-  --bg-primary: #05060b;
-  --bg-secondary: #0b0d18;
-  --bg-tertiary: #131728;
-  --bg-glass: rgba(11, 13, 24, 0.65);
+  --bg-primary: #0a0e1a;
+  --bg-secondary: #111827;
+  --bg-tertiary: #1f2937;
+  --bg-glass: rgba(17, 24, 39, 0.7);
   --bg-glass-hover: rgba(19, 23, 40, 0.85);
   
-  --border-color: rgba(255, 255, 255, 0.05);
-  --border-color-hover: rgba(255, 255, 255, 0.12);
+  --border-color: rgba(255, 255, 255, 0.12);
+  --border-color-hover: rgba(255, 255, 255, 0.24);
   --border-glow: rgba(255, 46, 85, 0.4);
 
   --text-primary: #f8fafc;
@@ -53,19 +53,81 @@
 }
 
 body {
-  background-color: var(--bg-primary);
-  /* Ambient background glow effect */
-  background-image: 
-    radial-gradient(circle at 10% 20%, rgba(255, 46, 85, 0.04) 0%, transparent 40%),
-    radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.05) 0%, transparent 45%),
-    radial-gradient(circle at 50% 50%, rgba(6, 182, 212, 0.02) 0%, transparent 50%);
-  background-attachment: fixed;
+  background-color: #060913; /* Very dark rich blue-black for premium dark SaaS feel */
   color: var(--text-primary);
   font-family: var(--font-sans);
   min-height: 100vh;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
 }
+
+/* Animated Flowing Aurora Background */
+.aurora-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  background-color: #060913;
+}
+
+.aurora-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(140px);
+  opacity: 0.15; /* Subtle, non-distracting glow */
+  mix-blend-mode: screen;
+  will-change: transform;
+}
+
+.aurora-blob-1 {
+  background: radial-gradient(circle, var(--color-shorts) 0%, rgba(255, 46, 85, 0) 70%);
+  width: 50vw;
+  height: 50vw;
+  top: -10vw;
+  left: -10vw;
+  animation: aurora-drift-1 25s infinite alternate ease-in-out;
+}
+
+.aurora-blob-2 {
+  background: radial-gradient(circle, var(--color-accent) 0%, rgba(139, 92, 246, 0) 70%);
+  width: 60vw;
+  height: 60vw;
+  bottom: -15vw;
+  right: -10vw;
+  animation: aurora-drift-2 30s infinite alternate ease-in-out;
+}
+
+.aurora-blob-3 {
+  background: radial-gradient(circle, var(--color-cyan) 0%, rgba(6, 182, 212, 0) 70%);
+  width: 45vw;
+  height: 45vw;
+  bottom: 10vh;
+  left: 15vw;
+  animation: aurora-drift-3 28s infinite alternate ease-in-out;
+}
+
+@keyframes aurora-drift-1 {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(8vw, 12vh) scale(1.15); }
+  100% { transform: translate(-4vw, -6vh) scale(0.9); }
+}
+
+@keyframes aurora-drift-2 {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-10vw, -8vh) scale(0.85); }
+  100% { transform: translate(5vw, 6vh) scale(1.1); }
+}
+
+@keyframes aurora-drift-3 {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(6vw, -10vh) scale(1.2); }
+  100% { transform: translate(-8vw, 8vh) scale(0.95); }
+}
+
 
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
@@ -486,7 +548,7 @@ h1, h2, h3, h4, h5, h6 {
     inset 0 0 20px rgba(0,0,0,0.8);
   position: relative;
   overflow: hidden;
-  background: #000000;
+  background: #090d16;
 }
 
 /* Subtitle styling overlay */
@@ -903,7 +965,7 @@ table tbody tr:hover {
     inset 0 0 20px rgba(0,0,0,0.8);
   position: relative;
   overflow: hidden;
-  background: #000000;
+  background: #090d16;
 }
 
 @media (max-width: 640px) {
@@ -912,4 +974,290 @@ table tbody tr:hover {
     height: auto;
     aspect-ratio: 16 / 9;
   }
+}
+
+/* Shimmer animations for Skeleton Screen Loaders */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.02) 25%, rgba(255, 255, 255, 0.06) 50%, rgba(255, 255, 255, 0.02) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite linear;
+}
+
+/* ================= SAAS INTERACTION REFACTOR ================= */
+
+/* Gradient buttons with shifted background transition */
+.btn-primary {
+  background: var(--grad-shorts);
+  background-size: 200% auto;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+.btn-primary:hover {
+  background-position: right center;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-glow), 0 6px 20px rgba(255, 46, 85, 0.4);
+}
+
+/* Focus Ring Pulsing & Scaling Glow */
+.input-control {
+  transition: border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.25s ease;
+}
+.input-control:focus {
+  border-color: var(--color-shorts);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 0 0 3px rgba(255, 46, 85, 0.15), 0 0 15px rgba(255, 46, 85, 0.1);
+}
+
+.input-control-success {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-color);
+  color: #ffffff;
+  outline: none;
+  font-size: 0.95rem;
+  font-family: var(--font-sans);
+  transition: border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.25s ease;
+}
+.input-control-success:focus {
+  border-color: var(--color-success);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15), 0 0 15px rgba(16, 185, 129, 0.1);
+}
+
+/* Crisp Section Divider borders */
+.divider-y {
+  border-top: 1px solid var(--border-color);
+}
+.divider-x {
+  border-left: 1px solid var(--border-color);
+}
+
+/* Main Navigation Tabs */
+.nav-tab-btn {
+  padding: 10px 20px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  outline: none;
+}
+.nav-tab-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.03);
+}
+.nav-tab-btn.active.accent-shorts {
+  color: #ffffff;
+  border-bottom: 2px solid var(--color-shorts);
+}
+.nav-tab-btn.active.accent-success {
+  color: #ffffff;
+  border-bottom: 2px solid var(--color-success);
+}
+
+/* Sub-tab buttons (Monetization tab / calculator selectors) */
+.subtab-btn-short {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  outline: none;
+}
+.subtab-btn-short.active {
+  background: rgba(255, 46, 85, 0.12) !important;
+  color: var(--color-shorts) !important;
+  border-color: rgba(255, 46, 85, 0.25) !important;
+}
+.subtab-btn-short:hover:not(.active) {
+  background: rgba(255, 46, 85, 0.05);
+  color: var(--color-shorts-hover);
+  border-color: rgba(255, 46, 85, 0.1);
+}
+
+.subtab-btn-long {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  outline: none;
+}
+.subtab-btn-long.active {
+  background: rgba(16, 185, 129, 0.12) !important;
+  color: var(--color-success) !important;
+  border-color: rgba(16, 185, 129, 0.25) !important;
+}
+.subtab-btn-long:hover:not(.active) {
+  background: rgba(16, 185, 129, 0.05);
+  color: var(--color-success);
+  border-color: rgba(16, 185, 129, 0.1);
+}
+
+/* Calculator specific smaller tabs */
+.calc-tab-btn {
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: none;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+  outline: none;
+}
+.calc-tab-btn:hover {
+  background: rgba(255,255,255,0.03);
+  color: #fff;
+}
+.calc-tab-btn.active-short {
+  background: rgba(255,46,85,0.1) !important;
+  color: var(--color-shorts) !important;
+}
+.calc-tab-btn.active-long {
+  background: rgba(16,185,129,0.1) !important;
+  color: var(--color-success) !important;
+}
+
+/* Shortcut navigation buttons */
+.btn-shortcut-shorts {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(255, 46, 85, 0.25);
+  color: var(--color-shorts);
+  background: rgba(255, 46, 85, 0.04);
+  border-radius: 10px;
+  font-size: 0.85rem;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  outline: none;
+}
+.btn-shortcut-shorts:hover {
+  background: rgba(255, 46, 85, 0.08);
+  border-color: rgba(255, 46, 85, 0.45);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 46, 85, 0.15);
+}
+.btn-shortcut-shorts:active {
+  transform: translateY(0);
+}
+
+.btn-shortcut-long {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: var(--color-success);
+  background: rgba(16, 185, 129, 0.04);
+  border-radius: 10px;
+  font-size: 0.85rem;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  outline: none;
+}
+.btn-shortcut-long:hover {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.45);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+}
+.btn-shortcut-long:active {
+  transform: translateY(0);
+}
+
+/* Green-emerald gradient sweep button */
+.btn-success {
+  background: linear-gradient(135deg, var(--color-success) 0%, var(--color-cyan) 100%);
+  background-size: 200% auto;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+}
+.btn-success:hover {
+  background-position: right center;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4), 0 0 25px rgba(16, 185, 129, 0.25);
+}
+.btn-success:active {
+  transform: translateY(0);
+}
+
+/* Cyan gradient sweep button */
+.btn-cyan {
+  background: linear-gradient(135deg, var(--color-cyan) 0%, var(--color-accent) 100%);
+  background-size: 200% auto;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  box-shadow: 0 4px 14px rgba(6, 182, 212, 0.3);
+}
+.btn-cyan:hover {
+  background-position: right center;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(6, 182, 212, 0.4), 0 0 25px rgba(6, 182, 212, 0.25);
+}
+.btn-cyan:active {
+  transform: translateY(0);
+}
+
+/* Cyan-bordered outline button with neon hover glow */
+.btn-outline-cyan {
+  background: transparent;
+  border: 1px solid rgba(6, 182, 212, 0.4);
+  color: var(--color-cyan);
+}
+.btn-outline-cyan:hover {
+  background: rgba(6, 182, 212, 0.06);
+  border-color: var(--color-cyan);
+  box-shadow: 0 0 15px rgba(6, 182, 212, 0.15);
+  transform: translateY(-1px);
+}
+
+/* Deletion action button with scaling and error highlight */
+.btn-action-delete {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  outline: none;
+}
+.btn-action-delete:hover {
+  color: var(--color-error);
+  transform: scale(1.18);
 }

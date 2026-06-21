@@ -100,7 +100,7 @@ export default function LongCreator({ isChannelConnected, settings, addToast, fe
         const ttsPromise = fetch('/api/generate/speech', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: scene.narratorText, filename: `audio_${timestamp}_scene_${i}` })
+          body: JSON.stringify({ text: scene.narratorText, filename: `audio_${timestamp}_scene_${i}`, style })
         }).then(async (res) => {
           if (!res.ok) throw new Error(`TTS failed for scene ${i + 1}`);
           return res.json();
@@ -173,7 +173,8 @@ export default function LongCreator({ isChannelConnected, settings, addToast, fe
         'x-video-title': encodeURIComponent(publishMetadata.title || ''),
         'x-video-desc': encodeURIComponent(publishMetadata.description || ''),
         'x-video-tags': encodeURIComponent(publishMetadata.tags || ''),
-        'x-video-category': settings.defaultCategory || '22'
+        'x-video-category': settings.defaultCategory || '22',
+        'x-video-format': 'long'
       };
 
       if (publishMetadata.schedule && publishMetadata.scheduleTime) {
@@ -245,87 +246,102 @@ export default function LongCreator({ isChannelConnected, settings, addToast, fe
 
       {/* ================= STEP 1: IDEA / GENERATOR ================= */}
       {currentStep === 1 && (
-        <div className="glass-panel" style={{ padding: '36px', maxWidth: '600px', margin: '0 auto', borderLeft: '4px solid var(--color-success)', boxShadow: '0 0 25px rgba(16, 185, 129, 0.15)' }}>
-          <h2 style={{ fontSize: '1.6rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '10px', fontFamily: 'var(--font-display)' }}>
-            <Sparkles color="var(--color-success)" /> Long Video Creator
-          </h2>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '24px', fontSize: '0.95rem', lineHeight: '1.5' }}>
-            Describe your idea, and Gemini will generate a high-engagement 15-scene, widescreen 16:9 documentary script.
-          </p>
-
-          <form onSubmit={handleGenerateScript} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div>
-              <label className="form-label">Topic or Niche Concept</label>
-              <textarea 
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder="e.g. The history of ancient space exploration, or How artificial intelligence is reshaping biotechnology"
-                required
-                rows={3}
-                className="input-control"
-                style={{ resize: 'none' }}
-              />
+        isGeneratingScript ? (
+          <div className="tab-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <div className="glass-panel skeleton-shimmer" style={{ padding: '24px', height: '110px', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.03)' }} />
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+              gap: '24px'
+            }}>
+              {Array(6).fill(0).map((_, idx) => (
+                <div key={idx} className="glass-panel skeleton-shimmer" style={{ height: '260px', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.03)' }} />
+              ))}
             </div>
+          </div>
+        ) : (
+          <div className="glass-panel" style={{ padding: '36px', maxWidth: '600px', margin: '0 auto', borderLeft: '4px solid var(--color-success)', boxShadow: '0 0 25px rgba(16, 185, 129, 0.15)' }}>
+            <h2 style={{ fontSize: '1.6rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '10px', fontFamily: 'var(--font-display)' }}>
+              <Sparkles color="var(--color-success)" /> Long Video Creator
+            </h2>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '24px', fontSize: '0.95rem', lineHeight: '1.5' }}>
+              Describe your idea, and Gemini will generate a high-engagement 15-scene, widescreen 16:9 documentary script.
+            </p>
 
-            <div className="grid-two-col" style={{ gap: '16px' }}>
+            <form onSubmit={handleGenerateScript} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <div>
-                <label className="form-label">Script Style Tone</label>
-                <select 
-                  value={style}
-                  onChange={(e) => setStyle(e.target.value)}
-                  className="input-control input-control-select"
-                >
-                  <option value="informative">Factual & Informative</option>
-                  <option value="mysterious">Mysterious & Dark</option>
-                  <option value="motivational">Energetic & Inspiring</option>
-                  <option value="humorous">Funny & Pop-culture</option>
-                </select>
+                <label className="form-label">Topic or Niche Concept</label>
+                <textarea 
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder="e.g. The history of ancient space exploration, or How artificial intelligence is reshaping biotechnology"
+                  required
+                  rows={3}
+                  className="input-control"
+                  style={{ resize: 'none' }}
+                />
               </div>
 
-              <div>
-                <label className="form-label">Music Vibe</label>
-                <select 
-                  value={musicGenre}
-                  onChange={(e) => setMusicGenre(e.target.value)}
-                  className="input-control input-control-select"
-                >
-                  <option value="cinematic">Epic Cinematic</option>
-                  <option value="upbeat">Upbeat & Energetic</option>
-                  <option value="ambient">Calming Ambient</option>
-                  <option value="dark">Dark Suspense</option>
-                </select>
+              <div className="grid-two-col" style={{ gap: '16px' }}>
+                <div>
+                  <label className="form-label">Script Style Tone</label>
+                  <select 
+                    value={style}
+                    onChange={(e) => setStyle(e.target.value)}
+                    className="input-control input-control-select"
+                  >
+                    <option value="informative">Factual & Informative</option>
+                    <option value="mysterious">Mysterious & Dark</option>
+                    <option value="motivational">Energetic & Inspiring</option>
+                    <option value="humorous">Funny & Pop-culture</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="form-label">Music Vibe</label>
+                  <select 
+                    value={musicGenre}
+                    onChange={(e) => setMusicGenre(e.target.value)}
+                    className="input-control input-control-select"
+                  >
+                    <option value="cinematic">Epic Cinematic</option>
+                    <option value="upbeat">Upbeat & Energetic</option>
+                    <option value="ambient">Calming Ambient</option>
+                    <option value="dark">Dark Suspense</option>
+                  </select>
+                </div>
               </div>
-            </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px' }}>
-              <input 
-                type="checkbox" 
-                id="useVideosLong" 
-                checked={useVideoAssets} 
-                onChange={(e) => setUseVideoAssets(e.target.checked)} 
-                style={{ width: '16px', height: '16px', accentColor: 'var(--color-success)', cursor: 'pointer' }}
-              />
-              <label htmlFor="useVideosLong" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: 500 }}>
-                Search video clips instead of photos (Pexels API only)
-              </label>
-            </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px' }}>
+                <input 
+                  type="checkbox" 
+                  id="useVideosLong" 
+                  checked={useVideoAssets} 
+                  onChange={(e) => setUseVideoAssets(e.target.checked)} 
+                  style={{ width: '16px', height: '16px', accentColor: 'var(--color-success)', cursor: 'pointer' }}
+                />
+                <label htmlFor="useVideosLong" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: 500 }}>
+                  Search video clips instead of photos (Pexels API only)
+                </label>
+              </div>
 
-            <button 
-              type="submit" 
-              className="btn btn-primary"
-              disabled={isGeneratingScript || !prompt.trim()}
-              style={{ width: '100%', display: 'flex', gap: '8px', height: '46px', marginTop: '10px', background: 'linear-gradient(135deg, var(--color-success) 0%, var(--color-cyan) 100%)', boxShadow: '0 4px 14px rgba(16, 185, 129, 0.3)' }}
-            >
-              {isGeneratingScript ? (
-                <span className="spinner" style={{ borderColor: '#fff', borderTopColor: 'transparent' }}></span>
-              ) : (
-                <>
-                  Generate AI Storyboard <ArrowRight size={18} />
-                </>
-              )}
-            </button>
-          </form>
-        </div>
+              <button 
+                type="submit" 
+                className="btn btn-success"
+                disabled={isGeneratingScript || !prompt.trim()}
+                style={{ width: '100%', display: 'flex', gap: '8px', height: '46px', marginTop: '10px' }}
+              >
+                {isGeneratingScript ? (
+                  <span className="spinner" style={{ borderColor: '#fff', borderTopColor: 'transparent' }}></span>
+                ) : (
+                  <>
+                    Generate AI Storyboard <ArrowRight size={18} />
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+        )
       )}
 
       {/* ================= STEP 2: STORYBOARD REVIEW ================= */}
@@ -398,8 +414,8 @@ export default function LongCreator({ isChannelConnected, settings, addToast, fe
             <button 
               onClick={handlePrepareAssetsAndTTS} 
               disabled={isGeneratingVoice}
-              className="btn btn-primary" 
-              style={{ display: 'flex', gap: '6px', background: 'linear-gradient(135deg, var(--color-success) 0%, var(--color-cyan) 100%)' }}
+              className="btn btn-success" 
+              style={{ display: 'flex', gap: '6px' }}
             >
               {isGeneratingVoice ? (
                 <>
@@ -609,8 +625,8 @@ export default function LongCreator({ isChannelConnected, settings, addToast, fe
               <button 
                 onClick={handleUploadVideo} 
                 disabled={isUploading}
-                className="btn btn-primary"
-                style={{ flex: 1, height: '44px', display: 'flex', gap: '8px', background: 'linear-gradient(135deg, var(--color-success) 0%, var(--color-cyan) 100%)', boxShadow: '0 4px 14px rgba(16, 185, 129, 0.3)' }}
+                className="btn btn-success"
+                style={{ flex: 1, height: '44px', display: 'flex', gap: '8px' }}
               >
                 {isUploading ? (
                   <span className="spinner" style={{ borderColor: '#fff', borderTopColor: 'transparent' }}></span>
@@ -660,8 +676,8 @@ export default function LongCreator({ isChannelConnected, settings, addToast, fe
                 href={uploadSuccessData.youtubeUrl} 
                 target="_blank" 
                 rel="noreferrer" 
-                className="btn btn-primary"
-                style={{ width: '100%', display: 'flex', gap: '8px', background: 'linear-gradient(135deg, var(--color-success) 0%, var(--color-cyan) 100%)', boxShadow: '0 4px 14px rgba(16, 185, 129, 0.3)' }}
+                className="btn btn-success"
+                style={{ width: '100%', display: 'flex', gap: '8px' }}
               >
                 Watch on YouTube <Globe size={16} />
               </a>

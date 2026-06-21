@@ -100,7 +100,7 @@ export default function Creator({ isChannelConnected, settings, addToast, fetchU
         const ttsPromise = fetch('/api/generate/speech', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: scene.narratorText, filename: `audio_${timestamp}_scene_${i}` })
+          body: JSON.stringify({ text: scene.narratorText, filename: `audio_${timestamp}_scene_${i}`, style })
         }).then(async (res) => {
           if (!res.ok) throw new Error(`TTS failed for scene ${i + 1}`);
           return res.json();
@@ -173,7 +173,8 @@ export default function Creator({ isChannelConnected, settings, addToast, fetchU
         'x-video-title': encodeURIComponent(publishMetadata.title || ''),
         'x-video-desc': encodeURIComponent(publishMetadata.description || ''),
         'x-video-tags': encodeURIComponent(publishMetadata.tags || ''),
-        'x-video-category': settings.defaultCategory || '22'
+        'x-video-category': settings.defaultCategory || '22',
+        'x-video-format': 'short'
       };
 
       if (publishMetadata.schedule && publishMetadata.scheduleTime) {
@@ -245,87 +246,102 @@ export default function Creator({ isChannelConnected, settings, addToast, fetchU
 
       {/* ================= STEP 1: IDEA / GENERATOR ================= */}
       {currentStep === 1 && (
-        <div className="glass-panel" style={{ padding: '36px', maxWidth: '600px', margin: '0 auto', borderLeft: '4px solid var(--color-shorts)', boxShadow: 'var(--shadow-glow)' }}>
-          <h2 style={{ fontSize: '1.6rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '10px', fontFamily: 'var(--font-display)' }}>
-            <Sparkles color="var(--color-shorts)" /> AI Shorts Creator
-          </h2>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '24px', fontSize: '0.95rem', lineHeight: '1.5' }}>
-            Describe your idea, and Gemini will generate a high-engagement viral script storyboard.
-          </p>
-
-          <form onSubmit={handleGenerateScript} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div>
-              <label className="form-label">Topic or Niche Concept</label>
-              <textarea 
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder="e.g. 5 mysterious facts about the pyramids, or Daily motivational quote for programmers"
-                required
-                rows={3}
-                className="input-control"
-                style={{ resize: 'none' }}
-              />
+        isGeneratingScript ? (
+          <div className="tab-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <div className="glass-panel skeleton-shimmer" style={{ padding: '24px', height: '110px', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.03)' }} />
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+              gap: '24px'
+            }}>
+              {Array(6).fill(0).map((_, idx) => (
+                <div key={idx} className="glass-panel skeleton-shimmer" style={{ height: '260px', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.03)' }} />
+              ))}
             </div>
+          </div>
+        ) : (
+          <div className="glass-panel" style={{ padding: '36px', maxWidth: '600px', margin: '0 auto', borderLeft: '4px solid var(--color-shorts)', boxShadow: 'var(--shadow-glow)' }}>
+            <h2 style={{ fontSize: '1.6rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '10px', fontFamily: 'var(--font-display)' }}>
+              <Sparkles color="var(--color-shorts)" /> AI Shorts Creator
+            </h2>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '24px', fontSize: '0.95rem', lineHeight: '1.5' }}>
+              Describe your idea, and Gemini will generate a high-engagement viral script storyboard.
+            </p>
 
-            <div className="grid-two-col" style={{ gap: '16px' }}>
+            <form onSubmit={handleGenerateScript} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <div>
-                <label className="form-label">Script Style Tone</label>
-                <select 
-                  value={style}
-                  onChange={(e) => setStyle(e.target.value)}
-                  className="input-control input-control-select"
-                >
-                  <option value="informative">Factual & Informative</option>
-                  <option value="mysterious">Mysterious & Dark</option>
-                  <option value="motivational">Energetic & Inspiring</option>
-                  <option value="humorous">Funny & Pop-culture</option>
-                </select>
+                <label className="form-label">Topic or Niche Concept</label>
+                <textarea 
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder="e.g. 5 mysterious facts about the pyramids, or Daily motivational quote for programmers"
+                  required
+                  rows={3}
+                  className="input-control"
+                  style={{ resize: 'none' }}
+                />
               </div>
 
-              <div>
-                <label className="form-label">Music Vibe</label>
-                <select 
-                  value={musicGenre}
-                  onChange={(e) => setMusicGenre(e.target.value)}
-                  className="input-control input-control-select"
-                >
-                  <option value="cinematic">Epic Cinematic</option>
-                  <option value="upbeat">Upbeat & Energetic</option>
-                  <option value="ambient">Calming Ambient</option>
-                  <option value="dark">Dark Suspense</option>
-                </select>
+              <div className="grid-two-col" style={{ gap: '16px' }}>
+                <div>
+                  <label className="form-label">Script Style Tone</label>
+                  <select 
+                    value={style}
+                    onChange={(e) => setStyle(e.target.value)}
+                    className="input-control input-control-select"
+                  >
+                    <option value="informative">Factual & Informative</option>
+                    <option value="mysterious">Mysterious & Dark</option>
+                    <option value="motivational">Energetic & Inspiring</option>
+                    <option value="humorous">Funny & Pop-culture</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="form-label">Music Vibe</label>
+                  <select 
+                    value={musicGenre}
+                    onChange={(e) => setMusicGenre(e.target.value)}
+                    className="input-control input-control-select"
+                  >
+                    <option value="cinematic">Epic Cinematic</option>
+                    <option value="upbeat">Upbeat & Energetic</option>
+                    <option value="ambient">Calming Ambient</option>
+                    <option value="dark">Dark Suspense</option>
+                  </select>
+                </div>
               </div>
-            </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px' }}>
-              <input 
-                type="checkbox" 
-                id="useVideos" 
-                checked={useVideoAssets} 
-                onChange={(e) => setUseVideoAssets(e.target.checked)} 
-                style={{ width: '16px', height: '16px', accentColor: 'var(--color-shorts)', cursor: 'pointer' }}
-              />
-              <label htmlFor="useVideos" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: 500 }}>
-                Search video clips instead of photos (Pexels API only)
-              </label>
-            </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px' }}>
+                <input 
+                  type="checkbox" 
+                  id="useVideos" 
+                  checked={useVideoAssets} 
+                  onChange={(e) => setUseVideoAssets(e.target.checked)} 
+                  style={{ width: '16px', height: '16px', accentColor: 'var(--color-shorts)', cursor: 'pointer' }}
+                />
+                <label htmlFor="useVideos" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: 500 }}>
+                  Search video clips instead of photos (Pexels API only)
+                </label>
+              </div>
 
-            <button 
-              type="submit" 
-              className="btn btn-primary"
-              disabled={isGeneratingScript || !prompt.trim()}
-              style={{ width: '100%', display: 'flex', gap: '8px', height: '46px', marginTop: '10px' }}
-            >
-              {isGeneratingScript ? (
-                <span className="spinner"></span>
-              ) : (
-                <>
-                  Generate AI Storyboard <ArrowRight size={18} />
-                </>
-              )}
-            </button>
-          </form>
-        </div>
+              <button 
+                type="submit" 
+                className="btn btn-primary"
+                disabled={isGeneratingScript || !prompt.trim()}
+                style={{ width: '100%', display: 'flex', gap: '8px', height: '46px', marginTop: '10px' }}
+              >
+                {isGeneratingScript ? (
+                  <span className="spinner"></span>
+                ) : (
+                  <>
+                    Generate AI Storyboard <ArrowRight size={18} />
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+        )
       )}
 
       {/* ================= STEP 2: STORYBOARD REVIEW ================= */}
